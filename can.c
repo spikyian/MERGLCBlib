@@ -1,32 +1,48 @@
 #include <xc.h>
-#include "service.h"
+#include "merglcb.h"
 #include "module.h"
+#include "can.h"
+#include "mns.h"
 
-Service canService = {SERVICE_ID_CAN, 1, factoryResetCan, powerUpCan, processMessageCan, pollCan, isrCan};
+Service canService = {
+    SERVICE_ID_CAN,     // id
+    1,                  // version
+    canFactoryReset,    // factoryReset
+    canPowerUp,         // powerUp
+    canProcessMessage,  // processMessage
+    canPoll,            // poll
+    canIsr,             // highIsr
+    NULL                // lowIsr
+};
 unsigned char canId;
 
 //CAN 
 
-void factoryResetCan(void) {
+void canFactoryReset(void) {
     canId = 1;
     writeNVM(CANID_NVM_TYPE, CANID_ADDRESS, canId);
 }
 
-void powerUpCan(void) {
-
+void canPowerUp(void) {
+    int temp;
     // initialise the CAN peripheral
     
-    
-    canId = readNVM(CANID_NVM_TYPE, CANID_ADDRESS);
+    temp = readNVM(CANID_NVM_TYPE, CANID_ADDRESS);
+    if (temp < 0) {
+        // Unsure what to do
+        canId = CANID_DEFAULT;
+    } else {
+        canId = (unsigned char)temp;
+    }
 }
 
 #define CAN_NNHI     bytes[0]
 #define CAN_NNLO     bytes[1]
 
-unsigned char processMessageCan(Message * m) {
+unsigned char canProcessMessage(Message * m) {
     // check NN matches us
-    if (m->CAN_NNHI != NN.hi) return 0;
-    if (m->CAN_NNLO != NN.lo) return 0;
+    if (m->CAN_NNHI != nn.hi) return 0;
+    if (m->CAN_NNLO != nn.lo) return 0;
     
     // Handle any CAN specific OPCs
     switch (m->opc) {
@@ -37,11 +53,11 @@ unsigned char processMessageCan(Message * m) {
     return 0;
 }
 
-void pollCan(void) {
+void canPoll(void) {
     
 }
 
-void isrCan(void) {
+void canIsr(void) {
     // If RX then transfer frame from CAN peripheral to RX message buffer
     // handle enumeration frame
     // check for CANID clash and start self enumeration process

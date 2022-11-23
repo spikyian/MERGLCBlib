@@ -1,3 +1,6 @@
+#ifndef _MERGLCB_H_
+#define _MERGLCB_H_
+
 //
 // MERGLCB Service IDs
 //
@@ -190,10 +193,41 @@
 #define OPC_SD      0x8C
 #define OPC_ESD     0xE7
 
+
+
 // MANUFACTURER
 #define MANU_MERG	165
 // MODULE ID
 #define MTYP_MERGLCB    0xFC
+
+//
+// Parameters
+//
+#define PAR_NUM 	0	// Number of parameters
+#define PAR_MANU	1	// Manufacturer id
+#define PAR_MINVER	2	// Minor version letter
+#define PAR_MTYP	3	// Module type code
+#define PAR_EVTNUM	4	// Number of events supported
+#define PAR_EVNUM	5	// Event variables per event
+#define PAR_NVNUM	6	// Number of Node variables
+#define PAR_MAJVER	7	// Major version number
+#define PAR_FLAGS	8	// Node flags
+#define PAR_CPUID	9	// Processor type
+#define PAR_BUSTYPE	10	// Bus type
+#define PAR_LOAD1	11	// load address, 4 bytes
+#define PAR_LOAD2	12
+#define PAR_LOAD3	13
+#define PAR_LOAD4	14
+#define PAR_CPUMID	15	// CPU manufacturer's id as read from the chip config space, 4 bytes (note - read from cpu at runtime, so not included in checksum)
+#define PAR_CPUMAN	19	// CPU manufacturer code
+#define PAR_BETA	20	// Beta revision (numeric), or 0 if release
+
+// 
+// BUS type that module is connected to
+// 
+#define PB_CAN	1	// 
+#define PB_ETH	2	// 
+#define PB_MIWI	3	// 
 
 // 
 // Error codes for OPC_CMDERR
@@ -227,25 +261,58 @@
 #define MODE_BOOT2      5
 
 
-int readNVM(unsigned char type, unsigned char index);
-unsigned char writeNVM(unsigned char type, unsigned char index, unsigned char value);
+// NVM types
+#define EEPROM_NVM_TYPE     1
+#define FLASH_NVM_TYPE      2
 
-void sendMessage(unsigned char opc);
-void sendMessage(unsigned char opc, unsigned char data1);
-void sendMessage(unsigned char opc, unsigned char data1, unsigned char data2);
-void sendMessage(unsigned char opc, unsigned char data1, unsigned char data2, unsigned char data3);
-void sendMessage(unsigned char opc, unsigned char data1, unsigned char data2, unsigned char data3, unsigned char data4);
-void sendMessage(unsigned char opc, unsigned char data1, unsigned char data2, unsigned char data3, unsigned char data4, unsigned char data5);
-void sendMessage(unsigned char opc, unsigned char data1, unsigned char data2, unsigned char data3, unsigned char data4, unsigned char data5, unsigned char data6);
-void sendMessage(unsigned char opc, unsigned char data1, unsigned char data2, unsigned char data3, unsigned char data4, unsigned char data5, unsigned char data6, unsigned char data7);
+int readNVM(unsigned char type, unsigned int index);
+unsigned char writeNVM(unsigned char type, unsigned int index, unsigned char value);
+
+// XC8 doesn't support function overloading nor varargs
+void sendMessage0(unsigned char opc);
+void sendMessage1(unsigned char opc, unsigned char data1);
+void sendMessage2(unsigned char opc, unsigned char data1, unsigned char data2);
+void sendMessage3(unsigned char opc, unsigned char data1, unsigned char data2, unsigned char data3);
+void sendMessage4(unsigned char opc, unsigned char data1, unsigned char data2, unsigned char data3, unsigned char data4);
+void sendMessage5(unsigned char opc, unsigned char data1, unsigned char data2, unsigned char data3, unsigned char data4, unsigned char data5);
+void sendMessage6(unsigned char opc, unsigned char data1, unsigned char data2, unsigned char data3, unsigned char data4, unsigned char data5, unsigned char data6);
+void sendMessage7(unsigned char opc, unsigned char data1, unsigned char data2, unsigned char data3, unsigned char data4, unsigned char data5, unsigned char data6, unsigned char data7);
+void sendMessage(unsigned char opc, unsigned char len, unsigned char data1, unsigned char data2, unsigned char data3, unsigned char data4, unsigned char data5, unsigned char data6, unsigned char data7);
+
 
 typedef struct Message {
     unsigned char opc;
     unsigned char len;
-    unsigned char bytes[8];
+    unsigned char bytes[7];
 } Message;
 
 typedef struct Word {
     unsigned char hi;
     unsigned char lo;
 } Word;
+
+typedef struct Service {
+    unsigned char serviceNo;
+    unsigned char version;
+    void (* factoryReset)(void);
+    void (* powerUp)(void);
+    unsigned char (* processMessage)(Message * m);
+    void (* poll)(void);
+    void (* highIsr)(void);
+    void (* lowIsr)(void);
+    //void modes();
+    //void statusCodes();
+    //void diagnostics();
+} Service;
+
+extern Service * services[];
+
+extern void factoryReset(void);
+extern void powerUp(void);
+extern void processMessage(Message *);
+extern void highIsr(void);
+extern void lowIsr(void);
+extern Service * findService(unsigned char id);
+extern unsigned char have(unsigned char id);
+
+#endif
