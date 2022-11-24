@@ -12,6 +12,9 @@ static unsigned char txBufferWriteIndex;
 
 Service * services[NUM_SERVICES];
 
+/////////////////////////////////////////////
+// SERVICE CHECKING FUNCTIONC
+/////////////////////////////////////////////
 Service * findService(unsigned char id) {
     unsigned char i;
     for (i=0; i<NUM_SERVICES; i++) {
@@ -32,6 +35,9 @@ unsigned char have(unsigned char id) {
     return 0;
 }
 
+/////////////////////////////////////////////
+//FUNCTIONS TO CALL SERVICES
+/////////////////////////////////////////////
 void factoryReset(void) {
     unsigned char i;
  
@@ -70,6 +76,16 @@ void processMessage(Message * m) {
     }
 }
 
+void poll(void) {
+    unsigned char i;
+    
+    for (i=0; i< NUM_SERVICES; i++) {
+        if ((services[i] != NULL) && (services[i]->poll != NULL)) {
+            services[i]->poll();
+        }
+    }
+}
+
 void highIsr(void) {
     unsigned char i;
     
@@ -89,6 +105,9 @@ void lowIsr(void) {
     }
 }
 
+/////////////////////////////////////////////
+// Message handling functions
+/////////////////////////////////////////////
 void sendMessage0(unsigned char opc){
     sendMessage(opc, 0, 0,0,0,0,0,0,0);
 }
@@ -139,4 +158,38 @@ void sendMessage(unsigned char opc, unsigned char len, unsigned char data1, unsi
     m->bytes[6] = data7;
     // enable Interrupts
     ei();
+}
+
+/////////////////////////////////////////////
+//BUFFER MANIPULATION FUNCTIONS
+/////////////////////////////////////////////
+Message * getReceiveBuffer() {
+    Message * m;
+    m = &(rxBuffers[rxBufferWriteIndex++]);
+    if (rxBufferWriteIndex >= NUM_RXBUFFERS) {
+        rxBufferWriteIndex=0;
+    }
+    return m;
+}
+
+/////////////////////////////////////////////
+// NON VOLATILE MEMORY FUNCTIONS
+/////////////////////////////////////////////
+unsigned char writeNVM(unsigned char type, unsigned int index, unsigned char value) {
+    switch(type) {
+        case EEPROM_NVM_TYPE:
+            // TODO
+        case FLASH_NVM_TYPE:
+            // TODO
+            break;
+    }
+}
+int readNVM(unsigned char type, unsigned int index) {
+    switch(type) {
+        case EEPROM_NVM_TYPE:
+            // TODO
+        case FLASH_NVM_TYPE:
+            // TODO
+            return 0;
+    }
 }

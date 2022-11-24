@@ -310,9 +310,12 @@ extern Service * services[];
 extern void factoryReset(void);
 extern void powerUp(void);
 extern void processMessage(Message *);
+extern void poll(void);
 extern void highIsr(void);
 extern void lowIsr(void);
 extern Service * findService(unsigned char id);
 extern unsigned char have(unsigned char id);
+
+extern Message * getReceiveBuffer(void);
 
 #endif

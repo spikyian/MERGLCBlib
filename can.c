@@ -16,6 +16,9 @@ Service canService = {
 };
 unsigned char canId;
 
+// forward declarations
+unsigned char messageAvailable(void);
+
 //CAN 
 
 void canFactoryReset(void) {
@@ -54,7 +57,21 @@ unsigned char canProcessMessage(Message * m) {
 }
 
 void canPoll(void) {
-    
+    Message * m;
+    if (messageAvailable()) {
+        m = getReceiveBuffer();
+        if (m == NULL) {
+            // No RX buffer available
+        } else {
+            // copy message into buffer
+            processMessage(m);
+        }
+    }
+}
+
+unsigned char messageAvailable(void) {
+    // TODO
+    return 1;
 }
 
 void canIsr(void) {
