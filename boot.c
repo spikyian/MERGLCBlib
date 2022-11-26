@@ -17,10 +17,10 @@ Service bootService = {
 };
 
 
-unsigned char bootProcessMessage(Message * m) {
+uint8_t bootProcessMessage(Message * m) {
     // check NN matches us
-    if (m->bytes[0] != nn.hi) return 0;
-    if (m->bytes[1] != nn.lo) return 0;
+    if (m->bytes[0] != nn.bytes.hi) return 0;
+    if (m->bytes[1] != nn.bytes.lo) return 0;
     
     switch (m->opc) {
         case OPC_BOOT:

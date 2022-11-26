@@ -59,19 +59,22 @@ void LOW_INT_VECT(void)
 #ifdef BOOTLOADER_PRESENT
 // ensure that the bootflag is zeroed
 #pragma romdata BOOTFLAG
-unsigned char eeBootFlag = 0;
+uint8_t eeBootFlag = 0;
 #endif
 
 extern void init(void);
 extern void loop(void);
 
 void main(void) {
-    unsigned char i;
+    uint8_t i;
     
     // ensure that the services array is initialised to empty
     for (i=0; i<NUM_SERVICES; i++) {
         services[i] = NULL;
     }
+#if defined(_PIC18)
+    RCONbits.IPEN = 1;  // enable interrupt priority
+#endif
     // call the application's init to add the services it needs
     init();
     

@@ -5,5 +5,5 @@ extern Service canService;
 void canFactoryReset(void);
 void canPowerUp(void);
 void canPoll(void);
-unsigned char canProcessMessage(Message * m);
+uint8_t canProcessMessage(Message * m);
 void canIsr(void);

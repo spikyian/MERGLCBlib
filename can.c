@@ -14,10 +14,10 @@ Service canService = {
     canIsr,             // highIsr
     NULL                // lowIsr
 };
-unsigned char canId;
+uint8_t canId;
 
 // forward declarations
-unsigned char messageAvailable(void);
+uint8_t messageAvailable(void);
 
 //CAN 
 
@@ -35,17 +35,17 @@ void canPowerUp(void) {
         // Unsure what to do
         canId = CANID_DEFAULT;
     } else {
-        canId = (unsigned char)temp;
+        canId = (uint8_t)temp;
     }
 }
 
 #define CAN_NNHI     bytes[0]
 #define CAN_NNLO     bytes[1]
 
-unsigned char canProcessMessage(Message * m) {
+uint8_t canProcessMessage(Message * m) {
     // check NN matches us
-    if (m->CAN_NNHI != nn.hi) return 0;
-    if (m->CAN_NNLO != nn.lo) return 0;
+    if (m->CAN_NNHI != nn.bytes.hi) return 0;
+    if (m->CAN_NNLO != nn.bytes.lo) return 0;
     
     // Handle any CAN specific OPCs
     switch (m->opc) {
@@ -69,8 +69,8 @@ void canPoll(void) {
     }
 }
 
-unsigned char messageAvailable(void) {
-    // TODO
+uint8_t messageAvailable(void) {
+    // TODO     check to see if CAN frame available
     return 1;
 }
 

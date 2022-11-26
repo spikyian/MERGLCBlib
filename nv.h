@@ -2,9 +2,9 @@
 
 extern Service nvService;
 
-unsigned char APP_nvDefault(unsigned char index);
+uint8_t APP_nvDefault(uint8_t index);
 
 void nvFactoryReset(void);
 void nvPowerUp(void);
 void nvPoll(void);
-unsigned char nvProcessMessage(Message * m);
+uint8_t nvProcessMessage(Message * m);

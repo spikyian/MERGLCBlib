@@ -2,4 +2,4 @@
 
 extern Service bootService;
 
-unsigned char bootProcessMessage(Message * m);
+uint8_t bootProcessMessage(Message * m);
