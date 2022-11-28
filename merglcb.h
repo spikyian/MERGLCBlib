@@ -4,6 +4,7 @@
 //
 // MERGLCB Service IDs
 //
+#define SERVICE_ID_ALL      0
 #define SERVICE_ID_MNS      1
 #define SERVICE_ID_NV       2
 #define SERVICE_ID_CAN      3
@@ -20,6 +21,7 @@
 // 
 // Packets with no data bytes
 // 
+// TODO convert opcodes to enum
 #define OPC_ACK	0x00	// General ack
 #define OPC_NAK	0x01	// General nak
 #define OPC_HLT	0x02	// Bus Halt
@@ -192,6 +194,8 @@
 #define OPC_SQU     0x4E
 #define OPC_SD      0x8C
 #define OPC_ESD     0xE7
+#define OPC_ENACK   0xE6
+#define OPC_DGN     0xB7
 
 
 
@@ -225,6 +229,7 @@
 // 
 // BUS type that module is connected to
 // 
+// TODO convert Bus Types to enum
 #define PB_CAN	1	// 
 #define PB_ETH	2	// 
 #define PB_MIWI	3	// 
@@ -232,6 +237,7 @@
 // 
 // Error codes for OPC_CMDERR
 // 
+// TODO convert CMDERR error codes to enum
 #define CMDERR_INV_CMD	1	// 
 #define CMDERR_NOT_LRN	2	// 
 #define CMDERR_NOT_SETUP	3	// 
@@ -250,6 +256,7 @@
 //
 #define GRSP_OK                 0
 #define GRSP_UNKNOWN_NVM_TYPE   254
+#define GRSP_INVALID_DIAGNOSTIC 253
 
 //
 // Modes
@@ -262,13 +269,58 @@
 #define MODE_BOOT       5
 #define MODE_BOOT2      6
 
+// 
+// Processor manufacturer codes
+// 
+// TODO convert manufacturer Types to enum
+#define CPUM_MICROCHIP	1	// 
+#define CPUM_ATMEL	2	// 
+#define CPUM_ARM	3	// 
 
-// NVM types
-#define EEPROM_NVM_TYPE     1
-#define FLASH_NVM_TYPE      2
-
-int readNVM(uint8_t type, unsigned int index);
-uint8_t writeNVM(uint8_t type, unsigned int index, uint8_t value);
+// 
+// Microchip Processor type codes (identifies to FCU for bootload compatiblity)
+// 
+// TODO convert Processor Types to enum
+#define P18F2480	1	// 
+#define P18F4480	2	// 
+#define P18F2580	3	// 
+#define P18F4580	4	// 
+#define P18F2585	5	// 
+#define P18F4585	6	// 
+#define P18F2680	7	// 
+#define P18F4680	8	// 
+#define P18F2682	9	// 
+#define P18F4682	10	// 
+#define P18F2685	11	// 
+#define P18F4685	12	// 
+// 
+#define P18F25K80	13	// 
+#define P18F45K80	14	// 
+#define P18F26K80	15	// 
+#define P18F46K80	16	// 
+#define P18F65K80	17	// 
+#define P18F66K80	18	// 
+#define P18F14K22	19	// 
+#define P18F26K83	20	// 
+#define P18F27Q84	21	// 
+#define P18F47Q84	22	// 
+#define P18F27Q83	23	// 
+// 
+#define P32MX534F064	30	// 
+#define P32MX564F064	31	// 
+#define P32MX564F128	32	// 
+#define P32MX575F256	33	// 
+#define P32MX575F512	34	// 
+#define P32MX764F128	35	// 
+#define P32MX775F256	36	// 
+#define P32MX775F512	37	// 
+#define P32MX795F512	38	// 
+// 
+// ARM Processor type codes (identifies to FCU for bootload compatiblity)
+// 
+#define ARM1176JZF_S	1	// As used in Raspberry Pi
+#define ARMCortex_A7	2	// As Used in Raspberry Pi 2
+#define ARMCortex_A53	3	// As used in Raspberry Pi 3
 
 // XC8 doesn't support function overloading nor varargs
 void sendMessage0(uint8_t opc);
@@ -296,6 +348,17 @@ typedef union Word {
     uint16_t word;
 } Word;
 
+typedef union DiagnosticVal {
+    uint16_t    asUint;
+    int16_t     asInt;
+    struct {
+        uint8_t hi;
+        uint8_t lo;
+    } asBytes;
+    
+} DiagnosticVal;
+
+
 typedef struct Service {
     uint8_t serviceNo;
     uint8_t version;
@@ -307,10 +370,10 @@ typedef struct Service {
     void (* lowIsr)(void);
     //void modes();
     //void statusCodes();
-    //void diagnostics();
+    DiagnosticVal * (* getDiagnostic)(uint8_t index);   // pointer to function returning DiagnosticVal*
 } Service;
 
-extern Service * services[];
+extern const Service * services[];
 
 extern void factoryReset(void);
 extern void powerUp(void);
@@ -318,151 +381,12 @@ extern void processMessage(Message *);
 extern void poll(void);
 extern void highIsr(void);
 extern void lowIsr(void);
-extern Service * findService(uint8_t id);
+extern const Service * findService(uint8_t id);
 extern uint8_t have(uint8_t id);
+extern int16_t findServiceIndex(uint8_t id);
 
 extern Message * getReceiveBuffer(void);
 
 extern uint8_t APP_isSuitableTimeToWriteFlash(void);
-
-
-/////////////////////////////////////////////////////
-// TickTime
-/////////////////////////////////////////////////////
-#if defined(CPUF18K) || defined(_PIC18)
-    /* this section is based on the Timer 0 module of the PIC18 family */
-
-//   Prescaler is now calculated from clock MHz in the init routine - which assumes clock is an exact number of MHz
-//    #define ONE_SECOND (((DWORD)CLOCK_FREQ/1000 * 62500) / (SYMBOL_TO_TICK_RATE / 1000))
-//    /* SYMBOLS_TO_TICKS to only be used with input (a) as a constant, otherwise you will blow up the code */
-//    #define SYMBOLS_TO_TICKS(a) (((DWORD)CLOCK_FREQ/100000) * a / ((DWORD)SYMBOL_TO_TICK_RATE/100000))
-//    #define TICKS_TO_SYMBOLS(a) (((DWORD)SYMBOL_TO_TICK_RATE/100000) * a / ((DWORD)CLOCK_FREQ/100000))
-
-
-    #define TMR_IF          INTCONbits.TMR0IF
-    #define TMR_IE          INTCONbits.TMR0IE
-    #define TMR_IP          INTCON2bits.TMR0IP
-    #define TMR_ON          T0CONbits.TMR0ON
-    #define TMR_CON         T0CON
-    #define TMR_L           TMR0L
-    #define TMR_H           TMR0H
-    
-    
-#elif defined(__dsPIC30F__) || defined(__dsPIC33F__) || defined(__PIC24F__) || defined(__PIC24FK__) || defined(__PIC24H__)
-    /* this section is based on the Timer 2/3 module of the dsPIC33/PIC24 family */
-    #if(CLOCK_FREQ <= 125000)
-        #define CLOCK_DIVIDER 1
-        #define CLOCK_DIVIDER_SETTING 0x0000 /* no prescalar */
-        #define SYMBOL_TO_TICK_RATE 125000
-    #elif(CLOCK_FREQ <= 1000000)
-        #define CLOCK_DIVIDER 8
-        #define CLOCK_DIVIDER_SETTING 0x0010
-        #define SYMBOL_TO_TICK_RATE 1000000
-    #elif(CLOCK_FREQ <= 8000000)
-        #define CLOCK_DIVIDER 64
-        #define CLOCK_DIVIDER_SETTING 0x0020
-        #define SYMBOL_TO_TICK_RATE 8000000
-    #else
-        #define CLOCK_DIVIDER 256
-        #define CLOCK_DIVIDER_SETTING 0x0030
-        #define SYMBOL_TO_TICK_RATE 32000000
-    #endif
-
-    #define ONE_SECOND (((DWORD)CLOCK_FREQ/1000 * 62500) / ((DWORD)SYMBOL_TO_TICK_RATE / 1000))
-    /* SYMBOLS_TO_TICKS to only be used with input (a) as a constant, otherwise you will blow up the code */
-    #define SYMBOLS_TO_TICKS(a) (((DWORD)CLOCK_FREQ/10000 * a ) / ((DWORD)SYMBOL_TO_TICK_RATE / 10000))
-    #define TICKS_TO_SYMBOLS(a) (((DWORD)SYMBOL_TO_TICK_RATE/10000) * a / ((DWORD)CLOCK_FREQ/10000))
-#elif defined(__PIC32MX__)
-    /* this section is based on the Timer 2/3 module of the PIC32MX family */
-    #define INSTR_FREQ  (CLOCK_FREQ/4)
-    #if(INSTR_FREQ <= 125000)
-        #define CLOCK_DIVIDER 1
-        #define CLOCK_DIVIDER_SETTING 0x0000 /* no prescalar */
-        #define SYMBOL_TO_TICK_RATE 125000
-    #elif(INSTR_FREQ <= 1000000)
-        #define CLOCK_DIVIDER 8
-        #define CLOCK_DIVIDER_SETTING 0x0030
-        #define SYMBOL_TO_TICK_RATE 1000000
-    #elif(INSTR_FREQ <= 8000000)
-        #define CLOCK_DIVIDER 64
-        #define CLOCK_DIVIDER_SETTING 0x0060
-        #define SYMBOL_TO_TICK_RATE 8000000
-    #elif(INSTR_FREQ <= 16000000)
-        #define CLOCK_DIVIDER 256
-        #define CLOCK_DIVIDER_SETTING 0x0070
-        #define SYMBOL_TO_TICK_RATE INSTR_FREQ
-    #else
-        #define CLOCK_DIVIDER 256
-        #define CLOCK_DIVIDER_SETTING 0x70
-        #define SYMBOL_TO_TICK_RATE INSTR_FREQ
-    #endif
-
-    #define ONE_SECOND (((DWORD)INSTR_FREQ/1000 * 62500) / (SYMBOL_TO_TICK_RATE / 1000))
-    /* SYMBOLS_TO_TICKS to only be used with input (a) as a constant, otherwise you will blow up the code */
-    #define SYMBOLS_TO_TICKS(a) (((DWORD)(INSTR_FREQ/100000) * a) / (SYMBOL_TO_TICK_RATE / 100000))
-    #define TICKS_TO_SYMBOLS(a) (((DWORD)SYMBOL_TO_TICK_RATE/100000) * a / ((DWORD)CLOCK_FREQ/100000))
-#else
-    //#error "Unsupported processor.  New timing definitions required for proper operation"
-#endif
-
-#define HUNDRED_MICRO_SECOND 6                      // 6 ticks is 96us - approx 100us as close as possible with 16uS resolution
-#define ONE_SECOND          62500                   // Ticks per second at 16uS per tick
-#define TWO_SECOND          (ONE_SECOND*2)
-#define FIVE_SECOND         (ONE_SECOND*5)
-#define TEN_SECOND          (ONE_SECOND*10)
-#define HALF_SECOND         (ONE_SECOND/2)
-#define HALF_MILLI_SECOND   (ONE_SECOND/2000)
-#define ONE_MILI_SECOND     (ONE_SECOND/1000)
-#define HUNDRED_MILI_SECOND (ONE_SECOND/10)
-#define FORTY_MILI_SECOND   (ONE_SECOND/25)
-#define TWENTY_MILI_SECOND  (ONE_SECOND/50)
-#define TEN_MILI_SECOND     (ONE_SECOND/100)
-#define FIVE_MILI_SECOND    (ONE_SECOND/200)
-#define TWO_MILI_SECOND     (ONE_SECOND/500)
-#define ONE_MINUTE          (ONE_SECOND*60)
-#define ONE_HOUR            (ONE_MINUTE*60)
-
-#define tickGetDiff(a,b) (a.val - b.val)
-#define tickTimeSince(t)    (tickGet() - t.val)
-
-/************************ DATA TYPES *******************************/
-
-
-/******************************************************************
- // Time unit defined based on IEEE 802.15.4 specification.
- // One tick is equal to one symbol time, or 16us. The Tick structure
- // is four bytes in length and is capable of represent time up to
- // about 19 hours.
- *****************************************************************/
-typedef union _TickValue
-{
-    uint32_t val;
-    struct TickBytes
-    {
-        uint8_t b0;
-        uint8_t b1;
-        uint8_t b2;
-        uint8_t b3;
-    } byte;
-    uint8_t v[4];
-    struct TickWords
-    {
-        uint16_t w0;
-        uint16_t w1;
-    } word;
-} TickValue;
-
-
-// Global routine definitions
-
-void initTicker(uint8_t priority);
-uint32_t tickGet(void);
-void tickISR(void);
-
-/************************ VARIABLES ********************************/
-
-extern volatile uint8_t timerExtension1,timerExtension2;
-
-
 
 #endif

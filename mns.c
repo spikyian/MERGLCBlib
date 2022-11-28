@@ -3,17 +3,23 @@
 #include "module.h"
 #include "mns.h"
 
+#include "ticktime.h"
+#include "romops.h"
+#include "devincs.h"
+#include "timedResponse.h"
+
 #define MNS_VERSION 1
 
-Service mnsService = {
+const Service mnsService = {
     SERVICE_ID_MNS,         // id
     1,                      // version
     mnsFactoryReset,        // factoryReset
     mnsPowerUp,             // powerUp
     mnsProcessMessage,      // processMessage
-    mnsPoll,                   // poll
+    mnsPoll,                // poll
     NULL,                   // highIsr
-    mnsLowIsr               // lowIsr
+    mnsLowIsr,              // lowIsr
+    mnsGetDiagnostic        // getDiagnostic
 };
 
 // General MNS variables
@@ -31,6 +37,10 @@ static TickValue ledTimer;
 // pb handling
 static uint8_t pbState;
 static TickValue pbTimer;
+static DiagnosticVal mnsDiagnostics[NUM_DIAGNOSTICS];
+
+TimedResponseResult mnsTRserviceDiscoveryCallback(uint8_t type, const Service * s, uint8_t step);
+TimedResponseResult mnsTRallDiagnosticsCallback(uint8_t type, const Service * s, uint8_t step);
 
 void mnsFactoryReset(void) {
     uint8_t i;
@@ -45,6 +55,8 @@ void mnsFactoryReset(void) {
 
 void mnsPowerUp(void) {
     int temp;
+    uint8_t i;
+    
     temp = readNVM(NN_NVM_TYPE, NN_ADDRESS);
     if (temp < 0) {
         nn.bytes.hi = NN_HI_DEFAULT;
@@ -78,13 +90,16 @@ void mnsPowerUp(void) {
     ledState[0] = FLASH_50_HALF_HZ;
 #endif
     pbState = 0;
-    
+    // Clear the diagnostics
+    for (i=0; i< NUM_DIAGNOSTICS; i++) {
+        mnsDiagnostics[i].asInt = 0;
+    } 
 }
 
 uint8_t mnsProcessMessage(Message * m) {
     uint8_t i;
     uint8_t flags;
-    Service * s;
+    const Service * s;
     uint8_t newMode;
 
     // Now do the MNS opcodes
@@ -206,8 +221,8 @@ uint8_t mnsProcessMessage(Message * m) {
                     }
                     break;
                 case PAR_CPUID:		// Processor type
-                    // TODO      Return the processor type
-                    i=0;break;
+                    i=CPU;
+                    break;
                 case PAR_BUSTYPE:	// Bus type
                     i=0;
                     if (have(SERVICE_ID_CAN)) {
@@ -227,12 +242,27 @@ uint8_t mnsProcessMessage(Message * m) {
                     i=0x00;
                     break;
                 case PAR_CPUMID:	// CPU manufacturer's id as read from the chip config space, 4 bytes (note - read from cpu at runtime, so not included in checksum)
-                    // TODO
+#ifdef _PIC18
                     i=0;
+#else
+                    i = (*(const uint8_t*)0x3FFFFC; // Device revision byte 0
+#endif
+                    break;
+                case PAR_CPUMID+1:
+#ifdef _PIC18
+                    i=0;
+#else
+                    i = (*(const uint8_t*)0x3FFFFD; // Device recision byte 1
+#endif
+                    break;
+                case PAR_CPUMID+2:
+                    i = *(const uint8_t*)0x3FFFFE;  // Device ID byte 0
+                    break;
+                case PAR_CPUMID+3:
+                    i = *(const uint8_t*)0x3FFFFF;  // Device ID byte 1
                     break;
                 case PAR_CPUMAN:	// CPU manufacturer code
-                    // TODO     return the CPU code
-                    i=0;
+                    i=CPUM_MICROCHIP;
                     break;
                 case PAR_BETA:		// Beta revision (numeric), or 0 if release
                     i=PARAM_BUILD_VERSION;
@@ -246,22 +276,36 @@ uint8_t mnsProcessMessage(Message * m) {
             factoryReset();
             return 1;
         case OPC_RDGN:  // diagnostics
-            for (i=0; i<NUM_SERVICES; i++) {
-                    if (services[i] != NULL) {
-                        // TODO     How to do diagnostics
- //                       services[1]->diagnostics();
+            if (m->bytes[2] == 0) {
+                // a DGN response for all of the services
+                startTimedResponse(TIMED_RESPONSE_RDGN, SERVICE_ID_ALL, &mnsTRallDiagnosticsCallback);
+            } else {
+                s = findService(m->bytes[2]);
+                // an ESD for the particular service
+                // TODO What additional data for ESD?
+                if (m->bytes[3] == 0) {
+                    // a DGN for all diagnostics for a particular service
+                    startTimedResponse(TIMED_RESPONSE_RDGN, s->serviceNo, &mnsTRallDiagnosticsCallback);
+                }
+                if (s->getDiagnostic == NULL) {
+                    // the service doesn't support diagnostics
+                    sendMessage3(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, GRSP_INVALID_DIAGNOSTIC);
+                } else {
+                    DiagnosticVal * d = s->getDiagnostic(m->bytes[3]);
+                    if (d == NULL) {
+                        // the requested diagnostic doesn't exist
+                        sendMessage3(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, GRSP_INVALID_DIAGNOSTIC);
+                    } else {
+                        // it was a request for a single diagnost from a single service
+                        sendMessage6(OPC_DGN, nn.bytes.hi, nn.bytes.lo, s->serviceNo, m->bytes[3],d->asBytes.hi, d->asBytes.lo);
                     }
+                }
             }
             return 1;
         case OPC_RQSD:  // service discovery
             if (m->bytes[2] == 0) {
                 // a SD response for all of the services
-                // TODO need to use timedResponse
-                for (i=0; i<NUM_SERVICES; i++) {
-                    if (services[i] != NULL) {
-                        sendMessage4(OPC_SD, nn.bytes.hi, nn.bytes.lo, services[i]->serviceNo, services[i]->version);
-                    }
-                }
+                startTimedResponse(TIMED_RESPONSE_RQSD, SERVICE_ID_MNS, &mnsTRserviceDiscoveryCallback);
             } else {
                 s = findService(m->bytes[2]);
                 // an ESD for the particular service
@@ -492,4 +536,34 @@ void mnsLowIsr(void) {
     }
     return;
 }
+DiagnosticVal * mnsGetDiagnostic(uint8_t index) {
+    if ((index<1) || (index>NUM_DIAGNOSTICS)) {
+        return NULL;
+    }
+    return &(mnsDiagnostics[index-1]);
+}
 
+TimedResponseResult mnsTRserviceDiscoveryCallback(uint8_t type, const Service * s, uint8_t step) {
+    if (step >= NUM_SERVICES) {
+        return TIMED_RESPONSE_RESULT_FINISHED;
+    }
+    if (services[step] != NULL) {
+        sendMessage4(OPC_SD, nn.bytes.hi, nn.bytes.lo, services[step]->serviceNo, services[step]->version);
+    }
+    return TIMED_RESPONSE_RESULT_NEXT;
+}
+
+TimedResponseResult mnsTRallDiagnosticsCallback(uint8_t type, const Service * s, uint8_t step) {
+    if (s->getDiagnostic == NULL) {
+        return TIMED_RESPONSE_RESULT_FINISHED;
+    }
+    DiagnosticVal * d = s->getDiagnostic(step);
+    if (d == NULL) {
+        // the requested diagnostic doesn't exist
+        return TIMED_RESPONSE_RESULT_FINISHED;
+    } else {
+        // it was a request for a single diagnostic from a single service
+        sendMessage6(OPC_DGN, nn.bytes.hi, nn.bytes.lo, s->serviceNo, step,d->asBytes.hi, d->asBytes.lo);
+    }
+    return TIMED_RESPONSE_RESULT_NEXT;
+}

@@ -1,6 +1,7 @@
 #include <xc.h>
 #include "merglcb.h"
 #include "module.h"
+#include "romops.h"
 
 #ifdef __18CXX
 void ISRLow(void);
@@ -77,6 +78,8 @@ void main(void) {
 #endif
     // call the application's init to add the services it needs
     init();
+    // init the romops ready for flash writes
+    initRomOps();
     
     if (readNVM(NV_NVM_TYPE, NV_ADDRESS) != APP_NVM_VERSION) {
         factoryReset();

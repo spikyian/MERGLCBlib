@@ -4,7 +4,9 @@
 #include "can.h"
 #include "mns.h"
 
-Service canService = {
+#include "romops.h"
+
+const Service canService = {
     SERVICE_ID_CAN,     // id
     1,                  // version
     canFactoryReset,    // factoryReset
@@ -12,7 +14,8 @@ Service canService = {
     canProcessMessage,  // processMessage
     canPoll,            // poll
     canIsr,             // highIsr
-    NULL                // lowIsr
+    NULL,               // lowIsr
+    canGetDiagnostic    // getDiagnostic
 };
 uint8_t canId;
 
@@ -69,10 +72,6 @@ void canPoll(void) {
     }
 }
 
-uint8_t messageAvailable(void) {
-    // TODO     check to see if CAN frame available
-    return 1;
-}
 
 void canIsr(void) {
     // If RX then transfer frame from CAN peripheral to RX message buffer
@@ -81,4 +80,13 @@ void canIsr(void) {
     
     // If TX then transfer next frame from TX buffer to CAN peripheral 
     
+}
+
+DiagnosticVal * canGetDiagnostic(uint8_t index) {
+    return NULL;
+}
+
+uint8_t messageAvailable(void) {
+    // TODO     check to see if CAN frame available
+    return 1;
 }

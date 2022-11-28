@@ -1,6 +1,6 @@
 #include "merglcb.h"
 
-extern Service nvService;
+extern const Service nvService;
 
 uint8_t APP_nvDefault(uint8_t index);
 

@@ -1,12 +1,14 @@
 #include "merglcb.h"
 
-extern Service mnsService;
+extern const Service mnsService;
 
 extern void mnsFactoryReset(void);
 extern void mnsPowerUp(void);
 extern void mnsPoll(void);
 extern uint8_t mnsProcessMessage(Message * m);
 extern void mnsLowIsr(void);
+extern DiagnosticVal * mnsGetDiagnostic(uint8_t index);
+#define NUM_DIAGNOSTICS 8
 
 extern Word nn;
 extern uint8_t mode;

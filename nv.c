@@ -3,9 +3,10 @@
 #include "module.h"
 #include "nv.h"
 #include "mns.h"
+#include "romops.h"
 
 // service definition
-Service nvService = {
+const Service nvService = {
     SERVICE_ID_NV,      // id
     1,                  // version
     nvFactoryReset,     // factoryReset
@@ -13,7 +14,8 @@ Service nvService = {
     nvProcessMessage,   // processMessage
     nvPoll,             // poll
     NULL,               // highIsr
-    NULL                // lowIsr
+    NULL,               // lowIsr
+    NULL                // getDiagnostic
 };
 
 // nv cache
@@ -50,6 +52,10 @@ void nvPoll(void) {
 
 // diagnostics
 
+#ifdef NV_CACHE
+// TODO load the NV cache
+#endif
+
 int16_t getNV(uint8_t index) {
     if (index == 0) return NV_NUM;
     if (index > NV_NUM) return -CMDERR_INV_NV_IDX;
@@ -70,13 +76,12 @@ uint8_t setNV(uint8_t index, uint8_t value) {
 #ifdef NV_CACHE
     oldValue = nvCache[index];
     nvCache[index] = value;
-    APP_nvValueChanged(index, value, oldValue);
-    return 0;
+    check = 0;
 #else
     oldValue = readNVM(NV_NVM_TYPE, NV_ADDRESS+index);
     check = writeNVM(NV_NVM_TYPE, NV_ADDRESS+index, value);
-    APP_nvValueChanged(index, value, oldValue);
 #endif
+    APP_nvValueChanged(index, value, oldValue);
     return check;
 }
 

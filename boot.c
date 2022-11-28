@@ -4,8 +4,10 @@
 #include "boot.h"
 #include "mns.h"
 
+#include "romops.h"
+
 // service definition
-Service bootService = {
+const Service bootService = {
     SERVICE_ID_BOOT,    // id
     1,                  // version
     NULL,               // factoryReset
@@ -13,8 +15,17 @@ Service bootService = {
     bootProcessMessage, // processMessage
     NULL,               // poll
     NULL,               // highIsr
-    NULL                // lowIsr
+    NULL,               // lowIsr
+    NULL                // getDiagnostic
 };
+
+// Set the EEPROM_BOOT_FLAG to 0 to ensure the application is entered
+// __EEPROM_DATA takes 8 bytes, so set a new more defaults as well
+asm("PSECT eeprom_data,class=EEDATA");
+asm("ORG " ___mkstr(EE_TOP));
+asm("db 0");
+
+// TODO create a parameter block at 0x820
 
 
 uint8_t bootProcessMessage(Message * m) {
