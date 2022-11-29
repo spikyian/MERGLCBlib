@@ -1,10 +1,69 @@
+#ifndef _NV_H_
+/*
+  This work is licensed under the:
+      Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+   To view a copy of this license, visit:
+      http://creativecommons.org/licenses/by-nc-sa/4.0/
+   or send a letter to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
+
+   License summary:
+    You are free to:
+      Share, copy and redistribute the material in any medium or format
+      Adapt, remix, transform, and build upon the material
+
+    The licensor cannot revoke these freedoms as long as you follow the license terms.
+
+    Attribution : You must give appropriate credit, provide a link to the license,
+                   and indicate if changes were made. You may do so in any reasonable manner,
+                   but not in any way that suggests the licensor endorses you or your use.
+
+    NonCommercial : You may not use the material for commercial purposes. **(see note below)
+
+    ShareAlike : If you remix, transform, or build upon the material, you must distribute
+                  your contributions under the same license as the original.
+
+    No additional restrictions : You may not apply legal terms or technological measures that
+                                  legally restrict others from doing anything the license permits.
+
+   ** For commercial use, please contact the original copyright holder(s) to agree licensing terms
+
+    This software is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
+
+  Ian Hogg Nov 2022
+ */
+#define _NV_H_
 #include "merglcb.h"
 
+/*
+ * The NV service implements the MERGLCB Node Variable Service. This supports 
+ * the NVSET, NVRD and NVSETRD opcodes.
+ * 
+ * If NV_CACHE is defined in module.h then the NV service implements a cache
+ * of NV values in RAM. This can be used to speed up obtaining NV values used 
+ * within the application at the expense of additional RAM usage.
+ */
+
+/**
+ * Expose the service descriptor for the NV service.
+ */
 extern const Service nvService;
 
-uint8_t APP_nvDefault(uint8_t index);
-
+/**
+ * The NV factory reset will reset the NV values to the default values provided
+ * by the application.
+ */
 void nvFactoryReset(void);
+
+/**
+ * The NV power up routine loads the values for the NV cache.
+ */
 void nvPowerUp(void);
-void nvPoll(void);
+
+/**
+ * Handle the NVSET, NVRD and NVSETRD opcodes.
+ * @param m the message to be processed
+ * @return true if the message contains an opcode handled by this service
+ */
 uint8_t nvProcessMessage(Message * m);
+#endif

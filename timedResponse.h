@@ -27,8 +27,17 @@
 /* 
  * File:   timedResponse.h
  * Author: Ian
+ * 
+ * TimedResponse records that a sequence of MERGLCB messages are to be sent at
+ * a slow rate.
+ * startTimedResponse() is to be called to start the transmission. A callback
+ * function is provided and that function is called with an incrementing step 
+ * value. The function must return a result to indicate that it has finished or 
+ * that it still has more work to do.
  *
  * Created on 08 December 2021, 16:19
+ * Updates:
+ *    Nov 2022    ih     Changed to support the requirements of MERGLCB
  */
 
 #ifndef TIMEDRESPONSE_H
@@ -47,16 +56,36 @@ extern "C" {
 #define TIMED_RESPONSE_RQSD 3
 #define TIMED_RESPONSE_RDGN 4
     
-// The different APP responses
+// The different APP callback responses
 typedef enum {
-    TIMED_RESPONSE_RESULT_FINISHED,
-    TIMED_RESPONSE_RESULT_RETRY,
-    TIMED_RESPONSE_RESULT_NEXT
+    TIMED_RESPONSE_RESULT_FINISHED, // done everything - no need to call back again
+    TIMED_RESPONSE_RESULT_RETRY,    // something went wrong, call back again later
+    TIMED_RESPONSE_RESULT_NEXT      // not yet finished, call back again with next step
 } TimedResponseResult;
 
+/**
+ * The callback function type.
+ */
 typedef TimedResponseResult (* TimedResponseCallback)(uint8_t type, const Service * service, uint8_t step);   // Callback is  pointer to function returning uint8_t
+
+/**
+ * Initialsation routine.
+ */
 extern void initTimedResponse(void);
+
+/**
+ * Request callbacks at a regular rate.
+ * @param type  indicate to the callback function the type of the callback.
+ * @param serviceId passed to the user's callback function. If SERVICE_ID_ALL is 
+ * passed then the callback is repeatedly for each service.
+ * @param callback the user specific callback function
+ */
 extern void startTimedResponse(uint8_t type, uint8_t serviceId, TimedResponseCallback callback);
+
+/**
+ * Call regularly to call the user's callback function. Handles the call back 
+ * function's results to increment the step value and cycle through the services.
+ */
 extern void pollTimedResponse(void);
 
 #ifdef	__cplusplus

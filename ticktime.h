@@ -1,4 +1,63 @@
 #ifndef _TICKTIME_H_
+/********************************************************************
+* FileName:		TickTime.h
+* Dependencies: TickTime.h
+* Processor:	PIC18, PIC24F, PIC32, dsPIC30, dsPIC33
+*               tested with 18F4620, dsPIC33FJ256GP710	
+* Hardware:		PICDEM Z, Explorer 16, PIC18 Explorer
+* Complier:     Microchip C18 v3.04 or higher
+*				Microchip C30 v2.03 or higher
+*               Microchip C32 v1.02 or higher	
+* Company:		Microchip Technology, Inc.
+*
+* Copyright and Disclaimer Notice
+*
+* This module has been derived from the Microchip MLA Symboltime module,
+* therefore the Microchip licensing terms apply.
+*
+* Copyright © 2007-2010 Microchip Technology Inc.  All rights reserved.
+* Copyright © 2015 Pete Brownlow for changes Jan 2015
+*
+* Microchip licenses to you the right to use, modify, copy and distribute 
+* Software only when embedded on a Microchip microcontroller or digital 
+* signal controller, which are integrated into your product or third party
+* product (pursuant to the terms in the accompanying license agreement).   
+*
+* You should refer to the license agreement accompanying this Software for 
+* additional information regarding your rights and obligations.
+*
+* SOFTWARE AND DOCUMENTATION ARE PROVIDED ï¿½AS ISï¿½ WITHOUT WARRANTY OF ANY 
+* KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION, ANY 
+* WARRANTY OF MERCHANTABILITY, TITLE, NON-INFRINGEMENT AND FITNESS FOR A 
+* PARTICULAR PURPOSE. IN NO EVENT SHALL MICROCHIP OR ITS LICENSORS BE 
+* LIABLE OR OBLIGATED UNDER CONTRACT, NEGLIGENCE, STRICT LIABILITY, 
+* CONTRIBUTION, BREACH OF WARRANTY, OR OTHER LEGAL EQUITABLE THEORY ANY 
+* DIRECT OR INDIRECT DAMAGES OR EXPENSES INCLUDING BUT NOT LIMITED TO 
+* ANY INCIDENTAL, SPECIAL, INDIRECT, PUNITIVE OR CONSEQUENTIAL DAMAGES, 
+* LOST PROFITS OR LOST DATA, COST OF PROCUREMENT OF SUBSTITUTE GOODS, 
+* TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES (INCLUDING BUT 
+* NOT LIMITED TO ANY DEFENSE THEREOF), OR OTHER SIMILAR COSTS.
+*
+*********************************************************************
+* File Description:
+*
+*  This file provides access to all of the time management functions
+*   as well as calculating the timer scaling settings required for
+*   accurate symbol time measurement
+*
+* Change History:
+*  Rev   Date         Author    Description
+*  0.1   11/09/2006   yfy       Initial revision
+*  1.0   01/09/2007   yfy       Initial release
+*  2.0   4/15/2009    yfy       MiMAC and MiApp revision
+*  2.1   06/20/2009   yfy       Add LCD support
+*  3.1   5/28/2010    yfy       MiWi DE 3.1
+*  4.1   6/3/2011     yfy       MAL v2011-06
+*  4.2   15/1/15      pnb       Extracted from MLA as standalone utility (C18 only at present)
+*                               Timer prescaler calculated from clock MHz set in hwsettings
+*  4.3   Nov 2022     ih        Port to XC8 and updated for needs of MERGLCB 
+*
+********************************************************************/
 #define _TICKTIME_H_
 /////////////////////////////////////////////////////
 // TickTime
@@ -129,12 +188,26 @@ typedef union _TickValue
 
 // Global routine definitions
 
+/**
+ * Sets up Timer0 to count time.
+ * @param priority 0=low priority, high priority otherwise
+ */
 void initTicker(uint8_t priority);
+/**
+ * Gets the current tick counter indicating time since power on.
+ * @return the value of the timer
+ */
 uint32_t tickGet(void);
+/**
+ * The Timer interrupt service routine.
+ */
 void tickISR(void);
 
 /************************ VARIABLES ********************************/
-
+/**
+ * Timer0 provides a 16bit counter. The timerExtension variables extend 
+ * the count to 32bit.
+ */
 extern volatile uint8_t timerExtension1,timerExtension2;
 
 #endif

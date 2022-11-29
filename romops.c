@@ -1,16 +1,56 @@
+/*
+  This work is licensed under the:
+      Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+   To view a copy of this license, visit:
+      http://creativecommons.org/licenses/by-nc-sa/4.0/
+   or send a letter to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
+
+   License summary:
+    You are free to:
+      Share, copy and redistribute the material in any medium or format
+      Adapt, remix, transform, and build upon the material
+
+    The licensor cannot revoke these freedoms as long as you follow the license terms.
+
+    Attribution : You must give appropriate credit, provide a link to the license,
+                   and indicate if changes were made. You may do so in any reasonable manner,
+                   but not in any way that suggests the licensor endorses you or your use.
+
+    NonCommercial : You may not use the material for commercial purposes. **(see note below)
+
+    ShareAlike : If you remix, transform, or build upon the material, you must distribute
+                  your contributions under the same license as the original.
+
+    No additional restrictions : You may not apply legal terms or technological measures that
+                                  legally restrict others from doing anything the license permits.
+
+   ** For commercial use, please contact the original copyright holder(s) to agree licensing terms
+
+    This software is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
+
+  Ian Hogg Nov 2022
+ */
+
+/*
+ * NON VOLATILE MEMORY FUNCTIONS
+ * Read and write to EEPROM is straightforward.
+ * Reading from flash is also straightforward but writing to flash is complex. 
+ * This involves needing to erase a block if changing any bit from 0 to 1 and
+ * if changing a single byte the entire block must be read, the byte changed 
+ * and the entire block written back.
+ */
+
 #include <xc.h>
 #include "merglcb.h"
 #include "hardware.h"
 #include "romops.h"
-/////////////////////////////////////////////
-// NON VOLATILE MEMORY FUNCTIONS
-/////////////////////////////////////////////
+
 #ifdef _PIC18
 #define BLOCK_SIZE _FLASH_ERASE_SIZE
 #endif
 
 // Structure for tracking Flash operations
-
 static union
 {
     uint8_t asByte;       
@@ -25,7 +65,11 @@ static uint24_t    flashBlock;     //address of current 64 byte flash block
 #define BLOCK(A)    (A&(uint24_t)(~(BLOCK_SIZE-1)))
 #define OFFSET(A)   (A&(BLOCK_SIZE-1))
 
-
+/**
+ * Read EEPROM.  
+ * @param index the address
+ * @return the value
+ */
 int16_t read_eeprom(uint16_t index) {
     // do read of EEPROM
     while (EECON1bits.WR)       // Errata says this is required
@@ -48,6 +92,12 @@ int16_t read_eeprom(uint16_t index) {
     return EEDATA;
 }
 
+/**
+ * Write a byte to EEPROM
+ * @param index the address
+ * @param value the value to be written
+ * @return 0 for success or error otherwise
+ */
 uint8_t write_eeprom(uint16_t index, uint8_t value) {
     uint8_t interruptEnabled;
     interruptEnabled = geti(); // store current global interrupt state
@@ -75,6 +125,11 @@ uint8_t write_eeprom(uint16_t index, uint8_t value) {
     return GRSP_OK;
 }
 
+/**
+ * Read Flash. 
+ * @param index the address
+ * @return the value
+ */
 int16_t read_flash(uint24_t index) {
     // do read of Flash
     if (BLOCK(index) == flashBlock) {
@@ -88,6 +143,11 @@ int16_t read_flash(uint24_t index) {
     }
 }
 
+/**
+ * Erase a block of flash.
+ * May block awaiting for the application to indicate that it is a suitable time
+ * to allow the CPU to be halted.
+ */
 void eraseFlashBlock() {
     uint8_t interruptEnabled;
     // Call back into the application to check if now is a good time to write the flash
@@ -111,7 +171,10 @@ void eraseFlashBlock() {
     }
     EECON1bits.WREN = 0;    // disable write to memory
 }
-
+/**
+ * Flush the current flash buffer out to flash.
+ * Will suspend the CPU.
+ */
 void flushFlashBlock() {
     uint8_t interruptEnabled;
     TBLPTR = flashBlock; //force row boundary
@@ -142,6 +205,9 @@ void flushFlashBlock() {
     EECON1bits.WREN = 0;
 }
 
+/**
+ * Load an entire block of flash into the flash buffer.
+ */
 void loadFlashBlock() {
     EECON1=0X80;    // access to flash
         TBLPTR = flashBlock;
@@ -151,7 +217,15 @@ void loadFlashBlock() {
         }
         TBLPTR = flashBlock;
 }
-    
+   
+/**
+ * Write a byte to Flash.
+ * May block awaiting for the application to indicate that it is a suitable time
+ * to allow the CPU to be halted.
+ * @param index the address
+ * @param value the value to be written
+ * @return 0 for success or error otherwise
+ */
 uint8_t write_flash(uint24_t index, uint8_t value) {
     uint8_t oldValue;
     
@@ -205,7 +279,13 @@ uint8_t write_flash(uint24_t index, uint8_t value) {
     return GRSP_OK;
 }
 
-
+/**
+ * Write a single byte to NVM.
+ * @param type the type of memory to access
+ * @param index the memory address
+ * @param value the value to be written
+ * @return 0 for success, error otherwise
+ */
 uint8_t writeNVM(NVMtype type, uint24_t index, uint8_t value) {
     switch(type) {
         case EEPROM_NVM_TYPE:
@@ -216,6 +296,13 @@ uint8_t writeNVM(NVMtype type, uint24_t index, uint8_t value) {
             return GRSP_UNKNOWN_NVM_TYPE;
     }
 }
+
+/**
+ * Read a single byte of NVM.
+ * @param type the type of memory to be accessed
+ * @param index the address
+ * @return the value if >=0, -error otherwise
+ */
 int16_t readNVM(NVMtype type, uint24_t index) {
     switch(type) {
         case EEPROM_NVM_TYPE:

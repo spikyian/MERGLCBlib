@@ -1,3 +1,48 @@
+/*
+  This work is licensed under the:
+      Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+   To view a copy of this license, visit:
+      http://creativecommons.org/licenses/by-nc-sa/4.0/
+   or send a letter to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
+
+   License summary:
+    You are free to:
+      Share, copy and redistribute the material in any medium or format
+      Adapt, remix, transform, and build upon the material
+
+    The licensor cannot revoke these freedoms as long as you follow the license terms.
+
+    Attribution : You must give appropriate credit, provide a link to the license,
+                   and indicate if changes were made. You may do so in any reasonable manner,
+                   but not in any way that suggests the licensor endorses you or your use.
+
+    NonCommercial : You may not use the material for commercial purposes. **(see note below)
+
+    ShareAlike : If you remix, transform, or build upon the material, you must distribute
+                  your contributions under the same license as the original.
+
+    No additional restrictions : You may not apply legal terms or technological measures that
+                                  legally restrict others from doing anything the license permits.
+
+   ** For commercial use, please contact the original copyright holder(s) to agree licensing terms
+
+    This software is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
+
+  Ian Hogg Nov 2022
+ */
+
+/*
+ * Implementation of the MERGLCB NV service.
+ *
+ * The NV service implements the MERGLCB Node Variable Service. This supports 
+ * the NVSET, NVRD and NVSETRD opcodes.
+ * 
+ * If NV_CACHE is defined in module.h then the NV service implements a cache
+ * of NV values in RAM. This can be used to speed up obtaining NV values used 
+ * within the application at the expense of additional RAM usage.
+ */
+
 #include <xc.h>
 #include "merglcb.h"
 #include "module.h"
@@ -12,17 +57,23 @@ const Service nvService = {
     nvFactoryReset,     // factoryReset
     nvPowerUp,          // powerUp
     nvProcessMessage,   // processMessage
-    nvPoll,             // poll
+    NULL,               // poll
     NULL,               // highIsr
     NULL,               // lowIsr
     NULL                // getDiagnostic
 };
 
-// nv cache
+/**
+ *  nv cache
+ */
 #ifdef NV_CACHE
 static uint8_t nvCache[NV_NUM+1];
 #endif
 
+/**
+ * The factoryReset for the NV service. Requests the application for defaults
+ * for each NV and write those values to the non-volatile memory (NVM) store.
+ */
 void nvFactoryReset(void) {
     uint8_t i;
     for (i=1; i<= NV_NUM; i++) {
@@ -31,6 +82,9 @@ void nvFactoryReset(void) {
     }
 }
 
+/**
+ * Upon power up read the NV values from NVM and fill the NV cache.
+ */
 void nvPowerUp(void) {
 #ifdef NV_CACHE
     int temp;
@@ -38,24 +92,25 @@ void nvPowerUp(void) {
     uint8_t i;
     for (i=0; i<= NV_NUM; i++) {
         temp = readNVM(NV_NVM_TYPE, NV_ADDRESS+i);
-        nvCache[i] = APP_nvDefault(i);
+        if (temp < 0) {
+            // unsure how to handle an error here
+        } else {
+            nvCache[i] = (uint8_t)temp;
+        }
     }
 #endif
 }
 
-// poll
-void nvPoll(void) {
-    
-}
-
-// No NV ISR
-
-// diagnostics
 
 #ifdef NV_CACHE
 // TODO load the NV cache
 #endif
 
+/**
+ * Get the value of an NV. Either obtained from the cache or from NVM.
+ * @param index the NV index
+ * @return the NV value
+ */
 int16_t getNV(uint8_t index) {
     if (index == 0) return NV_NUM;
     if (index > NV_NUM) return -CMDERR_INV_NV_IDX;
@@ -66,6 +121,18 @@ int16_t getNV(uint8_t index) {
 #endif
 }
 
+/**
+ * Set (write) the value of an NV.
+ * The module's application is called (APP_nvValidate) to check that the 
+ * value being written is valid.
+ * After updating the NV the application's function APP_nvValueChanged is
+ * called so that the application can perform any related checks, changes or 
+ * functionality.
+ * 
+ * @param index the NV index
+ * @param value the value of the NV to be written 
+ * @return 0 for no error otherwise the error
+ */
 uint8_t setNV(uint8_t index, uint8_t value) {
     uint8_t check;
     uint8_t oldValue;
@@ -85,12 +152,17 @@ uint8_t setNV(uint8_t index, uint8_t value) {
     return check;
 }
 
+// shortcuts
 #define NV_NNHI     bytes[0]
 #define NV_NNLO     bytes[1]
 #define NV_INDEX    bytes[2]
 #define NV_VALUE    bytes[3]
 
-
+/**
+ * Process the NV related messages.
+ * @param m the MERGLCB message
+ * @return 1 if the message was processed, 0 otherwise
+ */
 uint8_t nvProcessMessage(Message * m) {
     int16_t valueOrError;
     // check NN matches us

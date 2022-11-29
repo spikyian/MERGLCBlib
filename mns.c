@@ -1,3 +1,44 @@
+/*
+  This work is licensed under the:
+      Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+   To view a copy of this license, visit:
+      http://creativecommons.org/licenses/by-nc-sa/4.0/
+   or send a letter to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
+
+   License summary:
+    You are free to:
+      Share, copy and redistribute the material in any medium or format
+      Adapt, remix, transform, and build upon the material
+
+    The licensor cannot revoke these freedoms as long as you follow the license terms.
+
+    Attribution : You must give appropriate credit, provide a link to the license,
+                   and indicate if changes were made. You may do so in any reasonable manner,
+                   but not in any way that suggests the licensor endorses you or your use.
+
+    NonCommercial : You may not use the material for commercial purposes. **(see note below)
+
+    ShareAlike : If you remix, transform, or build upon the material, you must distribute
+                  your contributions under the same license as the original.
+
+    No additional restrictions : You may not apply legal terms or technological measures that
+                                  legally restrict others from doing anything the license permits.
+
+   ** For commercial use, please contact the original copyright holder(s) to agree licensing terms
+
+    This software is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
+
+  Ian Hogg Nov 2022
+ */
+
+/**
+ * This is the Minimum Node Specification Service.
+ * This is a large service as it handles mode transitions, including setting of 
+ * node number. The module's LEDs and push button are also supported.
+ * Service discovery and Diagnostsics are also processed from this service.
+ * 
+ */
 #include <xc.h>
 #include "merglcb.h"
 #include "module.h"
@@ -10,6 +51,9 @@
 
 #define MNS_VERSION 1
 
+/**
+ *  The descriptor for the MNS service.
+ */
 const Service mnsService = {
     SERVICE_ID_MNS,         // id
     1,                      // version
@@ -23,25 +67,77 @@ const Service mnsService = {
 };
 
 // General MNS variables
+/**
+ * Node number.
+ */
 Word nn;            // node number
+/**
+ * Module operating mode.
+ */
 uint8_t mode; // operational mode
+/**
+ * The module's name. The NAME macro should be specified by the application 
+ * code in module.h.
+ */
 char * name = NAME; // module name
-uint8_t setupModePreviousMode;
-Word previousNN;
+// mode transition variables if timeout occurs
+/**
+ * The previous mode so it can be restored if a timeout occurs.
+ */
+static uint8_t setupModePreviousMode;
+/**
+ * The previous node number so it can be restored if a timeout occurs.
+ */
+static Word previousNN;
 
 // LED handling
+/**
+ * NUM_LEDS must be specified by the application in module.h.
+ * Each LED has a state here to indicate if it is on/off/flashing etc.
+ */
 static LedState    ledState[NUM_LEDS];     // the requested state
+/**
+ * Counters to control on/off period.
+ */
 static uint8_t flashCounter;     // update every 10ms
 static uint8_t flickerCounter;   // update every 10ms
 static TickValue ledTimer;
-// pb handling
+/**
+ * Module's push button handling.
+ * Other UI options are not currently supported.
+ */
 static uint8_t pbState;
 static TickValue pbTimer;
-static DiagnosticVal mnsDiagnostics[NUM_DIAGNOSTICS];
+/**
+ * The diagnostic values supported by the MNS service.
+ */
+static DiagnosticVal mnsDiagnostics[NUM_MNS_DIAGNOSTICS];
 
+/**
+ * Forward declaration for the TimedResponse callback function for sending
+ * Service Discovery responses.
+ * @param type type of TimedResponse
+ * @param s the service
+ * @param step the TimedResponse step
+ * @return indication if all the responses have been sent.
+ */
 TimedResponseResult mnsTRserviceDiscoveryCallback(uint8_t type, const Service * s, uint8_t step);
+/**
+ * Forward declaration for the TimedResponse callback function for sending
+ * Diagnostic responses.
+ * @param type type of TimedResponse
+ * @param s the service
+ * @param step the TimedResponse step
+ * @return indication if all the responses have been sent.
+ */
 TimedResponseResult mnsTRallDiagnosticsCallback(uint8_t type, const Service * s, uint8_t step);
 
+/*
+ * The Service functions
+ */
+/**
+ * Perform the MNS factory reset. Just set the node number and mode to default.
+ */
 void mnsFactoryReset(void) {
     uint8_t i;
     nn.bytes.hi = 0;
@@ -53,6 +149,11 @@ void mnsFactoryReset(void) {
     mode = writeNVM(MODE_NVM_TYPE, MODE_ADDRESS, mode);
 }
 
+/**
+ * Perform the MNS power up.
+ * Loads the node number and mode from non volatile memory. Initialises the LEDs 
+ * clear the Diagnostics values.
+ */
 void mnsPowerUp(void) {
     int temp;
     uint8_t i;
@@ -91,11 +192,19 @@ void mnsPowerUp(void) {
 #endif
     pbState = 0;
     // Clear the diagnostics
-    for (i=0; i< NUM_DIAGNOSTICS; i++) {
+    for (i=0; i< NUM_MNS_DIAGNOSTICS; i++) {
         mnsDiagnostics[i].asInt = 0;
     } 
 }
 
+/**
+ * Minimum Node Specification service MERGCB message processing.
+ * This handles all the opcodes for the MNS service. Also handles the mode
+ * state transitions and LED changes.
+ * 
+ * @param m the MERGLCB message to be processed
+ * @return 1 if the message was processed, 0 otherwise
+ */
 uint8_t mnsProcessMessage(Message * m) {
     uint8_t i;
     uint8_t flags;
@@ -103,7 +212,7 @@ uint8_t mnsProcessMessage(Message * m) {
     uint8_t newMode;
 
     // Now do the MNS opcodes
-    
+    // TODO check message->len
     // SETUP mode messages
     if (mode == MODE_SETUP) {
         switch (m->opc) {
@@ -373,6 +482,10 @@ uint8_t mnsProcessMessage(Message * m) {
     return 0;
 }
 
+/**
+ * Called regularly, processing for LED flashing and mode state transition 
+ * timeouts.
+ */
 void mnsPoll(void) {
     // update the LEDs
     if (tickTimeSince(ledTimer) > TEN_MILI_SECOND) {
@@ -522,6 +635,10 @@ void mnsPoll(void) {
     }
 }
 
+/**
+ * The MNS interrupt service routine. Handles the tickTime overflow to update
+ * the extension bytes.
+ */
 void mnsLowIsr(void) {
     // Tick Timer interrupt
     //check to see if the symbol timer overflowed
@@ -536,13 +653,26 @@ void mnsLowIsr(void) {
     }
     return;
 }
+
+/**
+ * Get the MNS diagnostic values.
+ * @param index the index indicating which diagnostic is required.
+ * @return the Diagnostic value or NULL if the value does not exist.
+ */
 DiagnosticVal * mnsGetDiagnostic(uint8_t index) {
-    if ((index<1) || (index>NUM_DIAGNOSTICS)) {
+    if ((index<1) || (index>NUM_MNS_DIAGNOSTICS)) {
         return NULL;
     }
     return &(mnsDiagnostics[index-1]);
 }
 
+/**
+ * This is the callback used by the service discovery responses.
+ * @param type always set to TIMED_RESPONSE_RQSD
+ * @param s indicates the service requesting the responses
+ * @param step loops through each service to be discovered
+ * @return whether all of the responses have been sent yet.
+ */
 TimedResponseResult mnsTRserviceDiscoveryCallback(uint8_t type, const Service * s, uint8_t step) {
     if (step >= NUM_SERVICES) {
         return TIMED_RESPONSE_RESULT_FINISHED;
@@ -553,6 +683,13 @@ TimedResponseResult mnsTRserviceDiscoveryCallback(uint8_t type, const Service * 
     return TIMED_RESPONSE_RESULT_NEXT;
 }
 
+/**
+ * This is the callback used by the diagnostic responses.
+ * @param type always set to TIMED_RESPONSE_RDNG
+ * @param s indicates the service requesting the responses
+ * @param step loops through each of the diagnostics
+ * @return whether all of the responses have been sent yet.
+ */
 TimedResponseResult mnsTRallDiagnosticsCallback(uint8_t type, const Service * s, uint8_t step) {
     if (s->getDiagnostic == NULL) {
         return TIMED_RESPONSE_RESULT_FINISHED;
