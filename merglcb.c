@@ -140,6 +140,28 @@
  * #define PARAM_NUM_EVENTS        The number of events.
  * #define PARAM_NUM_EV_EVENT      The number of EVs per event
  * 
+ *************************************************************************
+ * 
+ * The structure of the library:
+ * 
+ * -----------
+ * |   APP   |
+ * |     ------------------------------------------------------------------
+ * |     |                            MERGLCB                             |
+ * |     |                                                                |
+ * |     ----------------------- ------------------------------------------
+ * |         |  |   Service Interface      | |    Transport Interface     |
+ * |         |  ---------------------------- ------------------------------
+ * |         |  | service | | service | |          Transport service      |
+ * -----------  |         | |         | |                                 |
+ *              ----------- ----------- -----------------------------------
+ * 
+ * All services must support the Service interface.
+ * Transport services must also support the Transport interface.
+ * The APP makes use of merglcb functionality and also provides functionality to
+ * merglcb. 
+ * 
+ * 
  */
 
 #include "romops.h"
@@ -150,15 +172,6 @@
  * Timer 0 is used for Tick time
  */
 
-/**
- *  Tx and Rx buffers
- */
-static Message rxBuffers[NUM_RXBUFFERS];
-static uint8_t rxBufferReadIndex;
-static uint8_t rxBufferWriteIndex;
-static Message txBuffers[NUM_TXBUFFERS];
-static uint8_t txBufferReadIndex;
-static uint8_t txBufferWriteIndex;
 
 /**
  * The list of services implemented by the module.
@@ -166,9 +179,18 @@ static uint8_t txBufferWriteIndex;
 const Service * services[NUM_SERVICES];   // Services stored in Flash
 
 /**
+ * The module's transport interface.
+ */
+const Transport * transport;            // pointer to the Transport interface
+static Message tmpMessage;
+
+/**
  * Used to control the rate at which timedResponse messages are sent.
  */
 static TickValue timedResponseTime;
+
+/** APP externs */
+extern uint8_t APP_processMessage(Message * m);
 
 /////////////////////////////////////////////
 // SERVICE CHECKING FUNCTIONS
@@ -247,14 +269,9 @@ void factoryReset(void) {
 void powerUp(void) {
     uint8_t i;
     uint8_t divider;
-        
-    // initialise the RX buffers
-    rxBufferReadIndex = 0;
-    rxBufferWriteIndex = 0;
-    // initialise the TX buffers
-    txBufferReadIndex = 0;
-    txBufferWriteIndex = 0;
     
+    OSCTUNEbits.PLLEN = 1;      // enable the Phase Locked Loop x4
+ 
     // Initialise the Tick timer. Uses low priority interrupts
     initTicker(0);
     initTimedResponse();
@@ -267,34 +284,19 @@ void powerUp(void) {
 }
 
 /**
- * Process a message by passing to each service in turn and the application until
- * the message is processed.
- * Merglcb function to call the processMessage function for each service
- * until one of the services has managed to handle the message.
- * Also calls back to the application to module specific handling.
- * @param m the message to be processed
- */
-void processMessage(Message * m) {
-    uint8_t i;
-    
-    for (i=0; i< NUM_SERVICES; i++) {
-        if ((services[i] != NULL) && (services[i]->processMessage != NULL)) {
-            if (services[i]->processMessage(m)) return;
-        }
-    }
-    // TODO call the application's processMessage
-}
-
-/**
  * Poll each service.
  * Merglcb function to perform necessary poll functionality and regularly 
  * poll each service.
  * Polling occurs as frequently as possible. It is the responsibility of the
  * service's poll function to ensure that any actions are performed at the 
  * correct rate, for example by using tickTimeSince(lastTime).
+ * This also attempts to obtain a message from transport and use the services
+ * to process the message. Will also call back into APP to process message.
  */
 void poll(void) {
     uint8_t i;
+    Message m;
+    uint8_t handled;
     
     /* handle any timed responses */
     if (tickTimeSince(timedResponseTime) > 5*FIVE_MILI_SECOND) {
@@ -306,6 +308,26 @@ void poll(void) {
         if ((services[i] != NULL) && (services[i]->poll != NULL)) {
             services[i]->poll();
         }
+    }
+    
+    // Handle any incoming messages from the transport
+    handled = 0;
+    if (transport != NULL) {
+        if (transport->receiveMessage != NULL) {
+            if (transport->receiveMessage(&m)) {
+                for (i=0; i< NUM_SERVICES; i++) {
+                    if ((services[i] != NULL) && (services[i]->processMessage != NULL)) {
+                        if (services[i]->processMessage(&m)) {
+                            handled = 1;
+                            break;
+                        };
+                    }
+                }
+            }
+        }
+    }
+    if (handled == 0) {     // TODO check this. May want App to check before services as well as after
+        APP_processMessage(&m);
     }
 }
 
@@ -356,7 +378,7 @@ void lowIsr(void) {
  * @param opc opcode
  */
 void sendMessage0(uint8_t opc){
-    sendMessage(opc, 0, 0,0,0,0,0,0,0);
+    sendMessage(opc, 1, 0,0,0,0,0,0,0);
 }
 
 /**
@@ -365,7 +387,7 @@ void sendMessage0(uint8_t opc){
  * @param data1 data byte
  */
 void sendMessage1(uint8_t opc, uint8_t data1){
-    sendMessage(opc, 1, data1, 0,0,0,0,0,0);
+    sendMessage(opc, 2, data1, 0,0,0,0,0,0);
 }
 
 /**
@@ -375,7 +397,7 @@ void sendMessage1(uint8_t opc, uint8_t data1){
  * @param data2 data byte 2
  */
 void sendMessage2(uint8_t opc, uint8_t data1, uint8_t data2){
-    sendMessage(opc, 2, data1, data2, 0,0,0,0,0);
+    sendMessage(opc, 3, data1, data2, 0,0,0,0,0);
 }
 
 /**
@@ -386,7 +408,7 @@ void sendMessage2(uint8_t opc, uint8_t data1, uint8_t data2){
  * @param data3 data byte 3
  */
 void sendMessage3(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3) {
-    sendMessage(opc, 3, data1, data2, data3, 0,0,0,0);
+    sendMessage(opc, 4, data1, data2, data3, 0,0,0,0);
 }
 
 /**
@@ -398,7 +420,7 @@ void sendMessage3(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3) {
  * @param data4 data byte 4
  */
 void sendMessage4(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4){
-    sendMessage(opc, 4, data1, data2, data3, data4, 0,0,0);
+    sendMessage(opc, 5, data1, data2, data3, data4, 0,0,0);
 }
 
 /**
@@ -411,7 +433,7 @@ void sendMessage4(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint
  * @param data5 data byte 5
  */
 void sendMessage5(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5) {
-    sendMessage(opc, 5, data1, data2, data3, data4, data5, 0,0);
+    sendMessage(opc, 6, data1, data2, data3, data4, data5, 0,0);
 }
 
 /**
@@ -425,7 +447,7 @@ void sendMessage5(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint
  * @param data6 data byte 6
  */
 void sendMessage6(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6) {
-    sendMessage(opc, 6, data1, data2, data3, data4, data5, data6,0);
+    sendMessage(opc, 7, data1, data2, data3, data4, data5, data6,0);
 }
 
 /**
@@ -440,7 +462,7 @@ void sendMessage6(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint
  * @param data7 data byte 7
  */
 void sendMessage7(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6, uint8_t data7) {
-    sendMessage(opc, 7, data1, data2, data3, data4, data5, data6, data7);
+    sendMessage(opc, 8, data1, data2, data3, data4, data5, data6, data7);
 }
 
 /**
@@ -456,44 +478,18 @@ void sendMessage7(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint
  * @param data7
  */
 void sendMessage(uint8_t opc, uint8_t len, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6, uint8_t data7) {
-    Message * m;
-    // write the message into the TX buffers TODO check this
-    if (txBufferWriteIndex < txBufferReadIndex) {
-        // TODO     handle occurance of no transmit buffers
+    tmpMessage.opc = opc;
+    tmpMessage.len = len;
+    tmpMessage.bytes[0] = data1;
+    tmpMessage.bytes[1] = data2;
+    tmpMessage.bytes[2] = data3;
+    tmpMessage.bytes[3] = data4;
+    tmpMessage.bytes[4] = data5;
+    tmpMessage.bytes[5] = data6;
+    tmpMessage.bytes[6] = data7;
+    if (transport != NULL) {
+        if (transport->sendMessage != NULL) {
+            transport->sendMessage(&tmpMessage);
+        }
     }
-    // disable Interrupts
-    di();
-    txBufferWriteIndex++;
-    if (txBufferWriteIndex >= NUM_TXBUFFERS) {
-        txBufferWriteIndex = 0;
-    }
-    m = &(txBuffers[txBufferWriteIndex]);
-    m->opc = opc;
-    m->len = len;
-    m->bytes[0] = data1;
-    m->bytes[1] = data2;
-    m->bytes[2] = data3;
-    m->bytes[3] = data4;
-    m->bytes[4] = data5;
-    m->bytes[5] = data6;
-    m->bytes[6] = data7;
-    // enable Interrupts
-    ei();
 }
-
-/////////////////////////////////////////////
-//BUFFER MANIPULATION FUNCTIONS
-/////////////////////////////////////////////
-/**
- * 
- * @return 
- */
-Message * getReceiveBuffer() {
-    Message * m;
-    m = &(rxBuffers[rxBufferWriteIndex++]);
-    if (rxBufferWriteIndex >= NUM_RXBUFFERS) {
-        rxBufferWriteIndex=0;
-    }
-    return m;
-}
-

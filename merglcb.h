@@ -434,8 +434,8 @@ void sendMessage(uint8_t opc, uint8_t len, uint8_t data1, uint8_t data2, uint8_t
  * any data and the length of the message.
  */
 typedef struct Message {
-    uint8_t opc;        // The opcode
     uint8_t len;        // message length
+    uint8_t opc;        // The opcode
     uint8_t bytes[7];   // any data bytes
 } Message;
 
@@ -468,7 +468,8 @@ typedef union DiagnosticVal {
     } asBytes;
 } DiagnosticVal;
 
-/**
+/* SERVICE INTERFACE */
+/*******************************************************************************
  * This is the service descriptor and the main entry point to a service. The 
  * module's application code should add the service descriptors to the services
  * array for any of the services which it requires to be implemented.
@@ -519,7 +520,7 @@ extern uint8_t have(uint8_t id);
  */
 extern int16_t findServiceIndex(uint8_t id);
 
-
+/* Service function declarations */
 /**
  * Merglcb function to perform necessary factory reset functionality and also
  * call the factoryReset function for each service.
@@ -578,11 +579,29 @@ extern void lowIsr(void);
  */
 
 
-/**
+/* TRANSPORT INTERFACE */
+/*******************************************************************************
+ * Transport
  * 
- * @return 
+ * 
  */
-extern Message * getReceiveBuffer(void);
+typedef struct Transport {
+    uint8_t (* sendMessage)(Message * m);   // function call to send a message
+    uint8_t (* receiveMessage)(Message * m); // check to see if message is available and return in the structure provided
+ //   void (* releaseMessage)(Message * m);   // App has finished with message
+} Transport;
+
+/**
+ * MERGLCB supports a single transport. However it does support a bridge or routing
+ * type transports that can then support multiple underlying transports
+ */
+extern const Transport * transport;
+
+
+
+
+
+
 
 /**
  * Reference to a function which must be provided by the application to determine

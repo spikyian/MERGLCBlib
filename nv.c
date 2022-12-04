@@ -70,6 +70,10 @@ const Service nvService = {
 static uint8_t nvCache[NV_NUM+1];
 #endif
 
+/* externs back into APP */
+extern uint8_t APP_nvValidate(uint8_t index, uint8_t value);
+extern void APP_nvValueChanged(uint8_t index, uint8_t value, uint8_t oldValue);
+
 /**
  * The factoryReset for the NV service. Requests the application for defaults
  * for each NV and write those values to the non-volatile memory (NVM) store.
