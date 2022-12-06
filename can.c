@@ -65,6 +65,14 @@
 #define D6      12
 #define D7      13
 
+// Forward declarations
+void canFactoryReset(void);
+void canPowerUp(void);
+void canPoll(void);
+Processed canProcessMessage(Message * m);
+void canIsr(void);
+DiagnosticVal * canGetDiagnostic(uint8_t index);
+
 /* The CAN service descriptor */
 const Service canService = {
     SERVICE_ID_CAN,     // id
@@ -95,10 +103,6 @@ static DiagnosticVal canDiagnostics[NUM_CAN_DIAGNOSTICS];
 uint8_t  larbRetryCount;
 TickValue  canTransmitTimeout;
 uint8_t  canTransmitFailed;
-uint8_t txTimeoutCount;
-uint8_t  larbCount;
-uint8_t txErrCount;
-
 
 /**
  *  Tx and Rx buffers
@@ -119,20 +123,13 @@ uint8_t    enumerationInProgress;
 uint8_t    enumerationResults[ENUM_ARRAY_SIZE];
 #define arraySetBit( array, index ) ( array[index>>3] |= ( 1<<(index & 0x07) ) )
 
-/**
- *  
- */
-TickValue canTransmitTimeout;
-uint8_t canTransmitFailed;
-
-
 // forward declarations
 uint8_t messageAvailable(void);
-uint8_t setNewCanId(uint8_t newCanId);
+CanidResult setNewCanId(uint8_t newCanId);
 static uint8_t * getBufferPointer(uint8_t b);
 void canInterruptHandler(void);
 void processEnumeration(void);
-uint8_t handleIncomingPacket(uint8_t * p);
+MessageReceived handleIncomingPacket(uint8_t * p);
 void canFillRxFifo(void);
 
 //CAN SERVICE
@@ -178,12 +175,9 @@ void canPowerUp(void) {
     }
     
     canTransmitFailed=0;
-
     IPR5 = CAN_INTERRUPT_PRIORITY;    // CAN interrupts priority
-
     // Put module into Configuration mode.
     CANCON = 0b10000000;
-  
     // Wait for config mode
     while (CANSTATbits.OPMODE2 == 0);
 
@@ -310,21 +304,21 @@ void canPowerUp(void) {
  * Process the CAN specific MERGLCB messages. The MERGLCB CAN specification
  * describes two opcodes ENUM and CANID but this implementation does not 
  * require these as both are handled automatically.
- * @param m
- * @return 
+ * @param m the message to be processed
+ * @return PROCESSED is the message is processed, NOT_PROCESSED otherwise
  */
-uint8_t canProcessMessage(Message * m) {
+Processed canProcessMessage(Message * m) {
     // check NN matches us
-    if (m->bytes[0] != nn.bytes.hi) return 0;
-    if (m->bytes[1] != nn.bytes.lo) return 0;
+    if (m->bytes[0] != nn.bytes.hi) return NOT_PROCESSED;
+    if (m->bytes[1] != nn.bytes.lo) return NOT_PROCESSED;
     
     // Handle any CAN specific OPCs
     switch (m->opc) {
         case OPC_ENUM:
         case OPC_CANID:
-            return 1;
+            return PROCESSED;
     }
-    return 0;
+    return NOT_PROCESSED;
 }
 
 /**
@@ -337,7 +331,6 @@ void canIsr(void) {
     
     // If TX then transfer next frame from TX buffer to CAN peripheral 
     canInterruptHandler();
-    
 }
 
 /**
@@ -357,9 +350,9 @@ DiagnosticVal * canGetDiagnostic(uint8_t index) {
 /**
  * Dunno yet.
  * @param m
- * @return 1 if a message was sent, 0 if buffer was full
+ * @return SEND_OK if a message was sent, SEND_FAIL if buffer was full
  */
-uint8_t canSendMessage(Message * mp) {
+SendResult canSendMessage(Message * mp) {
     // first check to see if there are messages waiting in the TX queue
     if (quantity(&txQueue) == 0) {
         if (TXB0CONbits.TXREQ == 0) {
@@ -380,20 +373,24 @@ uint8_t canSendMessage(Message * mp) {
             TXB0DLC = mp->len & 0x0F;  // Ensure not RTR
 
             TXB0CONbits.TXREQ = 1;    // Initiate transmission
-            return 1;
+            canDiagnostics[CAN_DIAG_TX_MESSAGES].asUint++;
+            return SEND_OK;
         }
     }
     // Add to Queue
-    return (push(&txQueue, mp) == 0);
+    if (push(&txQueue, mp) == QUEUE_FAIL) {
+        return SEND_FAILED;
+    }
+    return SEND_OK;
 }
 /**
  * 
  * @return 1 if message received 0 otherwise
  */
-uint8_t canReceiveMessage(Message * m){
+MessageReceived canReceiveMessage(Message * m){
     Message * mp;
     uint8_t * p;
-    uint8_t messageAvailable;
+    MessageReceived messageAvailable;
     uint8_t incomingCanId;
  
     FIFOWMIE = 0;  // Disable high watermark interrupt so ISR cannot fiddle with FIFOs or enumeration map
@@ -404,7 +401,7 @@ uint8_t canReceiveMessage(Message * m){
     if (mp != NULL) {
         memcpy(m, mp, sizeof(Message));
         FIFOWMIE = 1; // Re-enable FIFO interrupts now out of critical section
-        return 1;      // message available
+        return RECEIVED;      // message available
     } else { // Nothing in software FIFO, so now check for message in hardware FIFO
         if (COMSTATbits.NOT_FIFOEMPTY) {
             p = getBufferPointer(CANCON & 0x07);
@@ -426,9 +423,11 @@ uint8_t canReceiveMessage(Message * m){
                     mp->bytes[4] = p[D5];
                     mp->bytes[5] = p[D6];
                     mp->bytes[6] = p[D7];
+                    messageAvailable = RECEIVED;
                 } else {
-                    // TODO no space in RX Queue
-                    messageAvailable = 0;
+                    // no space in RX Queue
+                    messageAvailable = NOT_RECEIVED;
+                    canDiagnostics[CAN_DIAG_RX_BUFFER_OVERRUN].asUint++;
                 }
             }
             // Record and Clear any previous invalid message bit flag.
@@ -442,7 +441,7 @@ uint8_t canReceiveMessage(Message * m){
         } else {
             // hardware FIFO empty - no messages available
             FIFOWMIE = 1; // Re-enable FIFO interrupts now out of critical section
-            return 0;
+            return NOT_RECEIVED;
         }
     }
 }
@@ -480,19 +479,6 @@ static uint8_t * getBufferPointer(uint8_t b) {
     }
     return (buffPtr);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /**
  *  Called by ISR to handle tx buffer interrupt.
@@ -543,9 +529,9 @@ void checkCANTimeout(void) {
     if (canTransmitTimeout.val != 0) {
         if (tickTimeSince(canTransmitTimeout) > CAN_TX_TIMEOUT) {    
             canTransmitFailed = 1;
-            txTimeoutCount++;
             TXB0CONbits.TXREQ = 0;  // abort timed out packet
             checkTxFifo();          //  See if another packet is waiting to be sent
+            canDiagnostics[CAN_DIAG_TX_ERRORS].asUint++;
         }
     }
 }
@@ -561,7 +547,7 @@ void canTxError(void) {
             canTransmitTimeout.val = 0;
 
             TXB0CONbits.TXREQ = 0;
-            larbCount++;
+            canDiagnostics[CAN_DIAG_LOST_ARRBITARTAION].asUint++;
         }
         else if ( --larbRetryCount == 0) {	// Allow tries at lower level priority first
             TXB0CONbits.TXREQ = 0;
@@ -570,12 +556,11 @@ void canTxError(void) {
         }
     }
     if (TXB0CONbits.TXERR) {	// bus error
-      canTransmitFailed = 1;
-      canTransmitTimeout.val = 0;
-      TXB0CONbits.TXREQ = 0;
-      txErrCount++;
+        canTransmitFailed = 1;
+        canTransmitTimeout.val = 0;
+        TXB0CONbits.TXREQ = 0;
+        canDiagnostics[CAN_DIAG_TX_ERRORS].asUint++;
     }
-    
     if (canTransmitFailed) {
         checkTxFifo();  // Check to see if more to try and send
     }
@@ -601,9 +586,10 @@ void canInterruptHandler(void) {
     checkCANTimeout();
 }
 
-uint8_t handleIncomingPacket(uint8_t * p) {
+MessageReceived handleIncomingPacket(uint8_t * p) {
     uint8_t incomingCanId;
 
+    canDiagnostics[CAN_DIAG_RX_MESSAGES].asUint++;
     // Check incoming Canid and initiate self enumeration if it is the same as our own
     if (enumerationInProgress) {
         arraySetBit( enumerationResults, incomingCanId);
@@ -622,9 +608,9 @@ uint8_t handleIncomingPacket(uint8_t * p) {
         // RTR bit set
         TXB2CONbits.TXREQ = 1;                  // Send enumeration response (zero payload frame preloaded in TXB2)
         enumerationStartTime.val = tickGet();   // re-Start hold off time for self enumeration
-        return 0;                               // wasn't a proper message
+        return NOT_RECEIVED;                               // wasn't a proper message
     }
-    return p[DLC] & 0x0F;       // Check not zero payload
+    return (p[DLC] & 0x0F) ? RECEIVED:NOT_RECEIVED;       // Check not zero payload
 }
 
 /**
@@ -647,7 +633,7 @@ void canFillRxFifo(void) {
             // copy message into the rx Queue
             m = getNextWriteMessage(&rxQueue);
             if (m == NULL) {
-                // TODO no space
+                canDiagnostics[CAN_DIAG_RX_BUFFER_OVERRUN].asUint++;
                 // Record and Clear any previous invalid message bit flag.
                 if (IRXIF) {
                     IRXIF = 0;
@@ -692,6 +678,7 @@ void processEnumeration(void) {
         enumerationInProgress = 1;
         enumerationRequired = 0;
         enumerationStartTime.val = tickGet();
+        canDiagnostics[CAN_DIAG_CANID_ENUMS].asUint++;
         TXB1CONbits.TXREQ = 1;              // Send RTR frame to initiate self enumeration
     } else {
         if (enumerationInProgress && (tickTimeSince(enumerationStartTime) > ENUMERATION_TIMEOUT )) {
@@ -713,7 +700,7 @@ void processEnumeration(void) {
                     } */
                 }
             } else {
-                // TODO stats for no Canid
+                canDiagnostics[CAN_DIAG_CANID_ENUMS_FAIL].asUint++;
                 /* if (resultRequired) {
                     doError(CMDERR_INVALID_EVENT);  // seems a strange error code but that's what the spec says...
                 } */
@@ -728,7 +715,7 @@ void processEnumeration(void) {
  * Set a new can id.
  * @return 1 upon success 0 otherwise
  */
-uint8_t setNewCanId(uint8_t newCanId) {
+CanidResult setNewCanId(uint8_t newCanId) {
     if ((newCanId >= 1) && (newCanId <= 99)) {
         canId = newCanId;
         TXB0SIDH &= 0b11110000;                // Clear canid bits
@@ -744,8 +731,9 @@ uint8_t setNewCanId(uint8_t newCanId) {
         TXB2SIDL = TXB0SIDL;
 
         writeNVM(CANID_NVM_TYPE, CANID_ADDRESS, newCanId );       // Update saved value
-        return 1;
+        canDiagnostics[CAN_DIAG_CANID_CHANGES].asUint++;        
+        return CANID_OK;
     } else {
-        return 0;
+        return CANID_FAIL;
     }
 }

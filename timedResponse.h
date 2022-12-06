@@ -49,7 +49,8 @@ extern "C" {
 
 // When we need to send a number of responses delayed over a period of time
 // These are the different timed response processes we can do
-    // TODO convert timedResponse Types to enum
+// Although considered converting these to an enum eventually decided against
+// it as this would limit reuse.
 #define TIMED_RESPONSE_NONE 0   
 #define TIMED_RESPONSE_SOD  1
 #define TIMED_RESPONSE_NERD 2

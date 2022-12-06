@@ -43,14 +43,17 @@ typedef struct Queue {
     uint8_t size;
 } Queue;
 
-
+typedef enum Qresult {
+    QUEUE_FAIL=0,
+    QUEUE_SUCCESS=1
+} Qresult;
 
 /**
  * 
  * @return 
  */
 uint8_t quantity(Queue * q);
-uint8_t push(Queue * q, Message * m);
+Qresult push(Queue * q, Message * m);
 Message * pop(Queue * q);
 extern Message * getNextWriteMessage(Queue * q);
 

@@ -45,7 +45,22 @@
  * requirements for the parameter block which are actually supported by the MNS.
  */
 
-// service decription
+/**************************************************************************
+ * Application code packed with the bootloader must be compiled with options:
+ * XC8 linker options -> Additional options --CODEOFFSET=0x800 
+ * This generates an error
+ * ::: warning: (2044) unrecognized option "--CODEOFFSET=0x800"
+ * but this can be ignored as the option works
+ * 
+ * Then the Application project must be made dependent on the Bootloader 
+ * project by adding the Bootloader to project properties->Conf:->Loading
+ * The project hex fill will have the .unified.hex extension.
+ ***************************************************************************/
+
+// forward declarations
+Processed bootProcessMessage(Message * m);
+
+// service description
 const Service bootService = {
     SERVICE_ID_BOOT,    // id
     1,                  // version
@@ -71,21 +86,21 @@ asm("db 0");
  * Process the bootloader specific messages. The only message which needs to be 
  * processed is BOOTM (called BOOT).
  * @param m the MERGLCB message
- * @return 1 to indicate that the message has been processed, 0 otherwise
+ * @return PROCESSED to indicate that the message has been processed, NOT_PROCESSED otherwise
  */
-uint8_t bootProcessMessage(Message * m) {
+Processed bootProcessMessage(Message * m) {
     // check NN matches us
-    if (m->bytes[0] != nn.bytes.hi) return 0;
-    if (m->bytes[1] != nn.bytes.lo) return 0;
+    if (m->bytes[0] != nn.bytes.hi) return NOT_PROCESSED;
+    if (m->bytes[1] != nn.bytes.lo) return NOT_PROCESSED;
     
     switch (m->opc) {
         case OPC_BOOT:
             // Set the bootloader flag to be picked up by the bootloader
             writeNVM(BOOT_FLAG_NVM_TYPE, BOOT_FLAG_ADDRESS, 0xFF); 
             RESET();     // will enter the bootloader
-            return 1;
+            return PROCESSED;
         default:
-            return 0;   // message not processed
+            return NOT_PROCESSED;   // message not processed
     }
 }
 

@@ -51,6 +51,14 @@
 
 #define MNS_VERSION 1
 
+// Forward declarations
+void mnsFactoryReset(void);
+void mnsPowerUp(void);
+void mnsPoll(void);
+Processed mnsProcessMessage(Message * m);
+void mnsLowIsr(void);
+DiagnosticVal * mnsGetDiagnostic(uint8_t index);
+
 /**
  *  The descriptor for the MNS service.
  */
@@ -112,6 +120,10 @@ static TickValue pbTimer;
  * The diagnostic values supported by the MNS service.
  */
 static DiagnosticVal mnsDiagnostics[NUM_MNS_DIAGNOSTICS];
+
+/* Heartbeat controls */
+static uint8_t heartbeatSequence;
+TickValue heartbeatTimer;
 
 /**
  * Forward declaration for the TimedResponse callback function for sending
@@ -194,8 +206,11 @@ void mnsPowerUp(void) {
     // Clear the diagnostics
     for (i=0; i< NUM_MNS_DIAGNOSTICS; i++) {
         mnsDiagnostics[i].asInt = 0;
-    } 
+    }
+    heartbeatSequence = 0;
+    heartbeatTimer.val = 0;
 }
+
 
 /**
  * Minimum Node Specification service MERGCB message processing.
@@ -203,9 +218,9 @@ void mnsPowerUp(void) {
  * state transitions and LED changes.
  * 
  * @param m the MERGLCB message to be processed
- * @return 1 if the message was processed, 0 otherwise
+ * @return PROCESSED if the message was processed, NOT_PROCESSED otherwise
  */
-uint8_t mnsProcessMessage(Message * m) {
+Processed mnsProcessMessage(Message * m) {
     uint8_t i;
     uint8_t flags;
     const Service * s;
@@ -229,16 +244,16 @@ uint8_t mnsProcessMessage(Message * m) {
                 ledState[0] = ON;
 #endif
                 // Update the LEDs
-                return 1;
+                return PROCESSED;
             case OPC_RQNP:  // request parameters
                 sendMessage7(OPC_PARAMS, PARAM_MANU, PARAM_MINOR_VERSION, 
                         PARAM_MODULE_ID, PARAM_NUM_EVENTS, PARAM_NUM_EV_EVENT, 
                         PARAM_NUM_NV, PARAM_MAJOR_VERSION);
-                return 1;
+                return PROCESSED;
             case OPC_RQMN:  // Request name
                 sendMessage7(OPC_NAME, name[0], name[1], name[2], name[3],  
                         name[4], name[5], name[6]);
-                return 1;
+                return PROCESSED;
             case OPC_QNN:   // Query nodes
                 flags = 0;
                 if (have(SERVICE_ID_CONSUMER)) {
@@ -252,9 +267,9 @@ uint8_t mnsProcessMessage(Message * m) {
                     flags |= 16;
                 }
                 sendMessage5(OPC_PNN, 0,0, MANU_MERG, MTYP_MERGLCB, flags);
-                return 1;
+                return PROCESSED;
         }
-        return 0;
+        return NOT_PROCESSED;
     }
     // No NN but in Normal mode or equivalent message processing
     switch (m->opc) {
@@ -275,15 +290,12 @@ uint8_t mnsProcessMessage(Message * m) {
                 flags |= 32;    // LEARN BIT
             }
             sendMessage5(OPC_PNN, nn.bytes.hi,nn.bytes.lo, MANU_MERG, MTYP_MERGLCB, flags);
-            return 1;
-        case OPC_GSTOP: // General stop
-            APP_GSTOP();
-            return 1;
+            return PROCESSED;
     }
     
     // With NN - check it is us
-    if (m->bytes[0] != nn.bytes.hi) return 0;
-    if (m->bytes[1] != nn.bytes.lo) return 0;
+    if (m->bytes[0] != nn.bytes.hi) return NOT_PROCESSED;
+    if (m->bytes[1] != nn.bytes.lo) return NOT_PROCESSED;
     // NN message processing
     switch (m->opc) {
         case OPC_RQNPN: // request node parameter
@@ -380,10 +392,10 @@ uint8_t mnsProcessMessage(Message * m) {
                     i=0;
             }
             sendMessage4(OPC_PARAN, nn.bytes.hi, nn.bytes.lo, m->bytes[2], i);
-            return 1;
+            return PROCESSED;
         case OPC_NNRSM: // reset to manufacturer defaults
             factoryReset();
-            return 1;
+            return PROCESSED;
         case OPC_RDGN:  // diagnostics
             if (m->bytes[2] == 0) {
                 // a DGN response for all of the services
@@ -410,7 +422,7 @@ uint8_t mnsProcessMessage(Message * m) {
                     }
                 }
             }
-            return 1;
+            return PROCESSED;
         case OPC_RQSD:  // service discovery
             if (m->bytes[2] == 0) {
                 // a SD response for all of the services
@@ -421,7 +433,7 @@ uint8_t mnsProcessMessage(Message * m) {
                 // TODO What additional data for ESD?
                 sendMessage7(OPC_ESD, nn.bytes.hi, nn.bytes.lo, s->serviceNo, 0,0,0,0);
             }
-            return 1;
+            return PROCESSED;
         case OPC_MODE:  // set operating mode
             newMode = m->bytes[2];
             // check current mode
@@ -469,17 +481,18 @@ uint8_t mnsProcessMessage(Message * m) {
                         // No special handling - JFDI
                         mode = newMode;
                     }
+                    // TODO NOHEARTB mode
                     break;
             }
-            return 1;
+            return PROCESSED;
         case OPC_SQU:   // squelch
             // TODO     Handle Squelch
-            return 1;
+            return PROCESSED;
         case OPC_NNRST: // reset CPU
             RESET();
-            return 1;
+            return PROCESSED;
     }
-    return 0;
+    return NOT_PROCESSED;
 }
 
 /**
@@ -487,6 +500,15 @@ uint8_t mnsProcessMessage(Message * m) {
  * timeouts.
  */
 void mnsPoll(void) {
+    // Heartbeat message
+    if (mode == MODE_NORMAL) {
+        // don't send in NOHEARTB mode - or any others
+        if (tickTimeSince(heartbeatTimer) > 5*ONE_SECOND) {
+            // TODO output the actual status
+            sendMessage5(OPC_HEARTB, nn.bytes.hi,nn.bytes.lo,heartbeatSequence++,0,0);
+            heartbeatTimer.val = tickGet();
+        }
+    }
     // update the LEDs
     if (tickTimeSince(ledTimer) > TEN_MILI_SECOND) {
         flashCounter++;

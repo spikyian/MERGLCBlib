@@ -50,6 +50,12 @@
 #include "mns.h"
 #include "romops.h"
 
+// forward declarations
+static void loadNVcahe(void);
+void nvFactoryReset(void);
+void nvPowerUp(void);
+Processed nvProcessMessage(Message *m);
+
 // service definition
 const Service nvService = {
     SERVICE_ID_NV,      // id
@@ -71,7 +77,6 @@ static uint8_t nvCache[NV_NUM+1];
 #endif
 
 /* externs back into APP */
-extern uint8_t APP_nvValidate(uint8_t index, uint8_t value);
 extern void APP_nvValueChanged(uint8_t index, uint8_t value, uint8_t oldValue);
 
 /**
@@ -91,9 +96,19 @@ void nvFactoryReset(void) {
  */
 void nvPowerUp(void) {
 #ifdef NV_CACHE
-    int temp;
-    // initialise the cache
+    loadNVcahe();
+#endif
+}
+
+
+#ifdef NV_CACHE
+/**
+ * Load the NV cache using values stored in non volatile memory.
+ */
+static void loadNVcahe(void) {
     uint8_t i;
+    int16_t temp;
+    
     for (i=0; i<= NV_NUM; i++) {
         temp = readNVM(NV_NVM_TYPE, NV_ADDRESS+i);
         if (temp < 0) {
@@ -102,12 +117,7 @@ void nvPowerUp(void) {
             nvCache[i] = (uint8_t)temp;
         }
     }
-#endif
 }
-
-
-#ifdef NV_CACHE
-// TODO load the NV cache
 #endif
 
 /**
@@ -138,22 +148,19 @@ int16_t getNV(uint8_t index) {
  * @return 0 for no error otherwise the error
  */
 uint8_t setNV(uint8_t index, uint8_t value) {
-    uint8_t check;
     uint8_t oldValue;
     
     if (index > NV_NUM) return CMDERR_INV_NV_IDX;
-    check = APP_nvValidate(index, value);
-    if (check) return CMDERR_INV_NV_VALUE;
+    if (APP_nvValidate(index, value) == INVALID) return CMDERR_INV_NV_VALUE;
 #ifdef NV_CACHE
     oldValue = nvCache[index];
     nvCache[index] = value;
-    check = 0;
 #else
     oldValue = readNVM(NV_NVM_TYPE, NV_ADDRESS+index);
     check = writeNVM(NV_NVM_TYPE, NV_ADDRESS+index, value);
 #endif
     APP_nvValueChanged(index, value, oldValue);
-    return check;
+    return 0;
 }
 
 // shortcuts
@@ -165,66 +172,66 @@ uint8_t setNV(uint8_t index, uint8_t value) {
 /**
  * Process the NV related messages.
  * @param m the MERGLCB message
- * @return 1 if the message was processed, 0 otherwise
+ * @return PROCESSED if the message was processed, NOT_PROCESSED otherwise
  */
-uint8_t nvProcessMessage(Message * m) {
+Processed nvProcessMessage(Message * m) {
     int16_t valueOrError;
     // check NN matches us
-    if (m->NV_NNHI != nn.bytes.hi) return 0;
-    if (m->NV_NNLO != nn.bytes.lo) return 0;
+    if (m->NV_NNHI != nn.bytes.hi) return NOT_PROCESSED;
+    if (m->NV_NNLO != nn.bytes.lo) return NOT_PROCESSED;
     
     switch (m->opc) {
         case OPC_NVRD:
             if (m->len <= 3) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, CMDERR_INV_CMD);
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
-                return 1;
+                return PROCESSED;
             }
             valueOrError = getNV(m->NV_INDEX);
             if (valueOrError < 0) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, (uint8_t)(-valueOrError));
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, (uint8_t)(-valueOrError));
-                return 1;
+                return PROCESSED;
             }
             sendMessage3(OPC_NVANS, nn.bytes.hi, nn.bytes.lo, (uint8_t)(valueOrError));
-            return 1;
+            return PROCESSED;
         case OPC_NVSET:
             if (m->len <= 4) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, CMDERR_INV_CMD);
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
-                return 1;
+                return PROCESSED;
             }
             valueOrError = setNV(m->NV_INDEX, m->NV_VALUE);
             if (valueOrError >0) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, (uint8_t)(-valueOrError));
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, (uint8_t)(-valueOrError));
-                return 1;
+                return PROCESSED;
             }
             sendMessage2(OPC_WRACK, nn.bytes.hi, nn.bytes.lo);
             sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, GRSP_OK);
-            return 1;
+            return PROCESSED;
         case OPC_NVSETRD:
             if (m->len <= 4) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, CMDERR_INV_CMD);
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
-                return 1;
+                return PROCESSED;
             }
             valueOrError = setNV(m->NV_INDEX, m->NV_VALUE);
             if (valueOrError >0) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, (uint8_t)(-valueOrError));
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, (uint8_t)(-valueOrError));
-                return 1;
+                return PROCESSED;
             }
             valueOrError = getNV(m->NV_INDEX);
             if (valueOrError < 0) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, (uint8_t)(-valueOrError));
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, (uint8_t)(-valueOrError));
-                return 1;
+                return PROCESSED;
             }
             sendMessage3(OPC_NVANS, nn.bytes.hi, nn.bytes.lo, (uint8_t)(valueOrError));
-            return 1;
+            return PROCESSED;
         default:
-            return 0;   // message not processed
+            return NOT_PROCESSED;   // message not processed
     }
 }
 

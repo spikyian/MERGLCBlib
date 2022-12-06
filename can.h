@@ -47,43 +47,30 @@ extern const Service canService;
 extern const Transport canTransport;
 
 /**
- * Function to perform any service specific factory reset functionality.
- * Initialises the CANID in EEPROM.
- */
-void canFactoryReset(void);
-/**
- * Function to perform any service specific power up functionality.
- * Initialises the CAN hardware, variables and diagnostics.
- */
-void canPowerUp(void);
-/**
- * Function called on a regular basis.
- */
-void canPoll(void);
-/**
- * The function implementation to to process the MERGLCB messages.
- * The only message processed is BOOTM. 
- * @param m the MERGLCB message to be processed
- * @return indication of whether the messages was processed by this service.
- */
-uint8_t canProcessMessage(Message * m);
-/**
- * Handle the CAN interrupt
- */
-void canIsr(void);
-/**
- * Return the CAN specific diagnostic data.
- * @param index identifies which DiagnosticVal to return
- * @return the requested DiagnosticVal or NULL is the data is not available
- */
-extern DiagnosticVal * canGetDiagnostic(uint8_t index);
-/**
  * The number of diagnostics stored for this service.
  */
-#define NUM_CAN_DIAGNOSTICS 10
+#define NUM_CAN_DIAGNOSTICS 16
+#define CAN_DIAG_RX_ERRORS          0x01 // CAN RX error counter
+#define CAN_DIAG_TX_ERRORS          0x02 // CAN TX error counter
+#define CAN_DIAG_STATUS             0x03 // last CAN status byte (TBA) 
+#define CAN_DIAG_TX_BUFFER_USAGE    0x04 // Tx buffer usage count
+#define CAN_DIAG_TX_BUFFER_OVERRUN  0x05 // Tx buffer overrun count
+#define CAN_DIAG_TX_MESSAGES        0x06 // TX message count
+#define CAN_DIAG_RX_BUFFER_USAGE    0x07 // RX buffer usage count 
+#define CAN_DIAG_RX_BUFFER_OVERRUN  0x08 // RX buffer overrun count
+#define CAN_DIAG_RX_MESSAGES        0x09 // RX message counter 
+#define CAN_DIAG_ERROR_FRAMES_DET   0x0A // CAN error frames detected 
+#define CAN_DIAG_ERROR_FRAMES_GEN   0x0B // CAN error frames generated (both active and passive ?)
+#define CAN_DIAG_LOST_ARRBITARTAION 0x0C // Number of times CAN arbitration was lost
+#define CAN_DIAG_CANID_ENUMS        0x0D // number of CANID enumerations 
+#define CAN_DIAG_CANID_CONFLICTS    0x0E // number of CANID conflicts detected
+#define CAN_DIAG_CANID_CHANGES      0x0F // Number of CANID changes
+#define CAN_DIAG_CANID_ENUMS_FAIL   0x10 // Number of CANID enumeration failures
 
-extern uint8_t canSendMessage(Message * m);
-extern uint8_t canReceiveMessage(Message * m);
+
+
+extern SendResult canSendMessage(Message * m);
+extern MessageReceived canReceiveMessage(Message * m);
 
 /**
  * The default value of the CANID.
@@ -96,6 +83,10 @@ extern uint8_t canReceiveMessage(Message * m);
 #define LARB_RETRIES    10                          // Number of retries for lost arbitration
 #define CAN_TX_TIMEOUT  ONE_SECOND                  // Time for CAN transmit timeout (will resolve to one second intervals due to timer interrupt period)
 
+typedef enum CanidResult {
+    CANID_FAIL,
+    CANID_OK
+} CanidResult;
 
 #ifdef _PIC18
     #define TXBnIE      PIE5bits.TXBnIE

@@ -41,8 +41,8 @@
  * @param a
  * @return 1 for success 0 for buffer full
  */
-uint8_t push(Queue * q, Message * a) {
-    if (((q->writeIndex+1)&((q->size)-1)) == q->readIndex) return 0;	// buffer full
+Qresult push(Queue * q, Message * a) {
+    if (((q->writeIndex+1)&((q->size)-1)) == q->readIndex) return QUEUE_FAIL;	// buffer full
     (q->messages[q->writeIndex]).opc = a->opc;
     (q->messages[q->writeIndex]).bytes[0] = a->bytes[0];
     (q->messages[q->writeIndex]).bytes[1] = a->bytes[1];
@@ -55,7 +55,7 @@ uint8_t push(Queue * q, Message * a) {
     q->writeIndex++;
     
     if (q->writeIndex >= q->size) q->writeIndex = 0;
-    return 1;
+    return QUEUE_SUCCESS;
 }
 /**
  * A bit like a push but doesn't copy the message and instead returns a pointer to

@@ -40,12 +40,4 @@
  */
 extern const Service bootService;
 
-/**
- * The only actual function implementation to to process the MERGLCB messages.
- * The only message processed is BOOTM. 
- * @param m the MERGLCB message to be processed
- * @return indication of whether the messages was processed by this service.
- */
-uint8_t bootProcessMessage(Message * m);
-
 #endif

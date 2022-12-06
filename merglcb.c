@@ -190,7 +190,8 @@ static Message tmpMessage;
 static TickValue timedResponseTime;
 
 /** APP externs */
-extern uint8_t APP_processMessage(Message * m);
+extern Processed APP_preProcessMessage(Message * m);
+extern Processed APP_postProcessMessage(Message * m);
 
 /////////////////////////////////////////////
 // SERVICE CHECKING FUNCTIONS
@@ -231,14 +232,14 @@ int16_t findServiceIndex(uint8_t id) {
  * @param id the service type id
  * @return 1 if the service is present 0 otherwise
  */
-uint8_t have(uint8_t id) {
+ServicePresent have(uint8_t id) {
     uint8_t i;
     for (i=0; i<NUM_SERVICES; i++) {
         if ((services[i] != NULL) && (services[i]->serviceNo == id)) {
-            return 1;
+            return PRESENT;
         }
     }
-    return 0;
+    return NOT_PRESENT;
 }
 
 /////////////////////////////////////////////
@@ -315,19 +316,22 @@ void poll(void) {
     if (transport != NULL) {
         if (transport->receiveMessage != NULL) {
             if (transport->receiveMessage(&m)) {
-                for (i=0; i< NUM_SERVICES; i++) {
-                    if ((services[i] != NULL) && (services[i]->processMessage != NULL)) {
-                        if (services[i]->processMessage(&m)) {
-                            handled = 1;
-                            break;
-                        };
+                handled = APP_preProcessMessage(&m); // Call App to check for any opcodes to be handled. 
+                if (handled == 0) {
+                    for (i=0; i< NUM_SERVICES; i++) {
+                        if ((services[i] != NULL) && (services[i]->processMessage != NULL)) {
+                            if (services[i]->processMessage(&m)) {
+                                handled = 1;
+                                break;
+                            };
+                        }
                     }
                 }
             }
         }
     }
-    if (handled == 0) {     // TODO check this. May want App to check before services as well as after
-        APP_processMessage(&m);
+    if (handled == 0) {     // Call App to check for any opcodes to be handled. 
+        APP_postProcessMessage(&m);
     }
 }
 

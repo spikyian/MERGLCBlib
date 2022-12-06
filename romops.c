@@ -229,7 +229,7 @@ void loadFlashBlock() {
 uint8_t write_flash(uint24_t index, uint8_t value) {
     uint8_t oldValue;
     
-    while (! APP_isSuitableTimeToWriteFlash())  // block awaiting a good time
+    while (APP_isSuitableTimeToWriteFlash() == BAD_TIME)  // block awaiting a good time
         ;
     /*
      * Writing flash is a bit of a pain as you must write in blocks. If you want to

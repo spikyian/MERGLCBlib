@@ -34,6 +34,8 @@
  */
 #define _MERGLCB_H_
 
+#include "romops.h"
+
 //
 // MERGLCB Service IDs
 //
@@ -213,13 +215,13 @@
 //
 // This block are the MERGLCB additions to CBUS
 //
-#define OPC_GSTOP   0x12
 #define OPC_SQU     0x4E
 #define OPC_RQSD    0x78
 #define OPC_MODE    0x76
 #define OPC_RDGN    0x87
 #define OPC_SD      0x8C
-#define OPC_DGN     0xB7
+#define OPC_HEARTB  0xAB
+#define OPC_DGN     0xC7
 #define OPC_ENACK   0xE6
 #define OPC_ESD     0xE7
 
@@ -254,7 +256,6 @@
 // 
 // BUS type that module is connected to
 // 
-// TODO convert Bus Types to enum
 #define PB_CAN	1	// 
 #define PB_ETH	2	// 
 #define PB_MIWI	3	// 
@@ -468,6 +469,11 @@ typedef union DiagnosticVal {
     } asBytes;
 } DiagnosticVal;
 
+typedef enum Processed {
+    NOT_PROCESSED=0,
+    PROCESSED=1
+} Processed;
+
 /* SERVICE INTERFACE */
 /*******************************************************************************
  * This is the service descriptor and the main entry point to a service. The 
@@ -483,7 +489,7 @@ typedef struct Service {
     uint8_t version;        // version of the service definition (not the version of code))
     void (* factoryReset)(void);    // function call for a new module
     void (* powerUp)(void);         // function called upon module power up
-    uint8_t (* processMessage)(Message * m);    // process and handle any MERGLCB messages
+    Processed (* processMessage)(Message * m);    // process and handle any MERGLCB messages
     void (* poll)(void);    // called regularly 
     void (* highIsr)(void); // handle any service specific high priority  interrupt service routine
     void (* lowIsr)(void);  // handle any service specific high priority  interrupt service routine
@@ -497,7 +503,10 @@ typedef struct Service {
  */
 extern const Service * services[];
 
-
+typedef enum ServicePresent {
+    NOT_PRESENT=0,
+    PRESENT=1
+}ServicePresent; 
 /**
  * Helper function to obtain a service descriptor given a service type identifier.
  * @param id the service type identifier
@@ -511,7 +520,7 @@ extern const Service * findService(uint8_t id);
  * @param id the service type identifier
  * @return 1 if the service is supported, 0 otherwise
  */
-extern uint8_t have(uint8_t id);
+extern ServicePresent have(uint8_t id);
 
 /**
  * Returns the index into the services array of the specified service.
@@ -585,9 +594,20 @@ extern void lowIsr(void);
  * 
  * 
  */
+
+typedef enum MessageReceived {
+    NOT_RECEIVED=0,
+    RECEIVED=1
+} MessageReceived;
+
+typedef enum SendResult {
+    SEND_FAILED=0,
+    SEND_OK
+} SendResult;
+
 typedef struct Transport {
-    uint8_t (* sendMessage)(Message * m);   // function call to send a message
-    uint8_t (* receiveMessage)(Message * m); // check to see if message is available and return in the structure provided
+    SendResult (* sendMessage)(Message * m);   // function call to send a message
+    MessageReceived (* receiveMessage)(Message * m); // check to see if message is available and return in the structure provided
  //   void (* releaseMessage)(Message * m);   // App has finished with message
 } Transport;
 
@@ -613,7 +633,7 @@ extern const Transport * transport;
  * by this function. 
  * @return 
  */
-extern uint8_t APP_isSuitableTimeToWriteFlash(void);
+extern ValidTime APP_isSuitableTimeToWriteFlash(void);
 
 /**
  * The default value for the node number.

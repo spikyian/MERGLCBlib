@@ -46,33 +46,6 @@
 extern const Service mnsService;
 
 /**
- * Expose the MNS factoryReset function. Clears the Node number and mode.
- */
-extern void mnsFactoryReset(void);
-
-/**
- * Expose the MNS powerUp function. Loads the NN and mode from NVM if the store 
- * is valid. Initialises module functionality and clears the diagnostic counters.
- */
-extern void mnsPowerUp(void);
-
-/**
- * Expose the MNS poll function. Used to flash the LEDs and to
- * control the mode transition timeouts.
- */
-extern void mnsPoll(void);
-
-/**
- * Expose the MNS processMessage function. Handles all the MNS opcodes
- */
-extern uint8_t mnsProcessMessage(Message * m);
-
-/**
- * Handles the tickTime interrupt.
- */
-extern void mnsLowIsr(void);
-
-/**
  * Allows the MNS diagnostic data to be retrieved.
  * @param index
  * @return 

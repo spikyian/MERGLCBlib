@@ -44,6 +44,11 @@ typedef enum {
     FLASH_NVM_TYPE
 } NVMtype;
 
+typedef enum ValidTime {
+    BAD_TIME=0,
+    GOOD_TIME=1
+} ValidTime;
+
 /*
  * Processor specific settings
  */
@@ -64,7 +69,7 @@ typedef enum {
  * Call back into the application to check if now is a good time to write the flash
  * as the processor will be suspended for up to 2ms.
  */
-extern unsigned char APP_isSuitableTimeToWriteFlash(void);
+extern ValidTime APP_isSuitableTimeToWriteFlash(void);
 
 /**
  * Initialise the Romops functions. Sets the flash buffer as being currently unused. 

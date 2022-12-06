@@ -49,21 +49,10 @@
  */
 extern const Service nvService;
 
-/**
- * The NV factory reset will reset the NV values to the default values provided
- * by the application.
- */
-void nvFactoryReset(void);
+typedef enum NvValidation {
+    INVALID=0,
+    VALID=1
+} NvValidation;
+extern NvValidation APP_nvValidate(uint8_t index, uint8_t value);
 
-/**
- * The NV power up routine loads the values for the NV cache.
- */
-void nvPowerUp(void);
-
-/**
- * Handle the NVSET, NVRD and NVSETRD opcodes.
- * @param m the message to be processed
- * @return true if the message contains an opcode handled by this service
- */
-uint8_t nvProcessMessage(Message * m);
 #endif
