@@ -102,6 +102,7 @@ uint8_t write_eeprom(uint16_t index, uint8_t value) {
     uint8_t interruptEnabled;
     interruptEnabled = geti(); // store current global interrupt state
     do {
+
         SET_EADDRH((index >> 8)&0xFF);      // High byte of address to write
         EEADR = index & 0xFF;       	/* Low byte of Data Memory Address to write */
         EEDATA = value;
@@ -117,8 +118,8 @@ uint8_t write_eeprom(uint16_t index, uint8_t value) {
         if (interruptEnabled) {     // Only enable interrupts if they were enabled at function entry
             ei();                   /* Enable Interrupts */
         }
-        while (!EEIF)
-            ;
+ //       while (!EEIF)
+ //           ;
         EEIF = 0;
         EECON1bits.WREN = 0;		/* Disable writes */
     } while (readNVM(EEPROM_NVM_TYPE, index) != value);

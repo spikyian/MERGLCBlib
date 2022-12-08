@@ -132,6 +132,261 @@ void processEnumeration(void);
 MessageReceived handleIncomingPacket(uint8_t * p);
 void canFillRxFifo(void);
 
+// message priority
+static const Priority priorities[256] = {
+    pNORMAL,   // OPC_ACK=0x00,
+    pNORMAL,   // OPC_NAK=0x01,
+    pHIGH,   // OPC_HLT=0x02,
+    pABOVE,   // OPC_BON=0x03,
+    pABOVE,   // OPC_TOF=0x04,
+    pABOVE,   // OPC_TON=0x05,
+    pABOVE,   // OPC_ESTOP=0x06,
+    pHIGH,   // OPC_ARST=0x07,
+    pABOVE,   // OPC_RTOF=0x08,
+    pABOVE,   // OPC_RTON=0x09,
+    pHIGH,   // OPC_RESTP=0x0A,
+    pNORMAL,   // OPC_RSTAT=0x0C,
+    pLOW,   // OPC_QNN=0x0D,
+    pLOW,   // OPC_RQNP=0x10,
+    pNORMAL,   // OPC_RQMN=0x11,
+            pNORMAL,    // 0x12
+            pNORMAL,    // 0x13
+            pNORMAL,    // 0x14
+            pNORMAL,    // 0x15
+            pNORMAL,    // 0x16
+            pNORMAL,    // 0x17
+            pNORMAL,    // 0x18
+            pNORMAL,    // 0x19
+            pNORMAL,    // 0x1A
+            pNORMAL,    // 0x1B
+            pNORMAL,    // 0x1C
+            pNORMAL,    // 0x1D
+            pNORMAL,    // 0x1E
+            pNORMAL,    // 0x1F
+            pNORMAL,    // 0x20
+    pNORMAL,   // OPC_KLOC=0x21,
+    pNORMAL,   // OPC_QLOC=0x22,
+    pNORMAL,   // OPC_DKEEP=0x23,
+            pNORMAL,    // 0x24
+            pNORMAL,    // 0x25
+            pNORMAL,    // 0x26
+            pNORMAL,    // 0x27
+            pNORMAL,    // 0x28
+            pNORMAL,    // 0x29
+            pNORMAL,    // 0x2A
+            pNORMAL,    // 0x2B
+            pNORMAL,    // 0x2C
+            pNORMAL,    // 0x2D
+            pNORMAL,    // 0x2E
+            pNORMAL,    // 0x2F
+    pNORMAL,   // OPC_DBG1=0x30,
+            pNORMAL,    // 0x31
+            pNORMAL,    // 0x32
+            pNORMAL,    // 0x33
+            pNORMAL,    // 0x34
+            pNORMAL,    // 0x35
+            pNORMAL,    // 0x36
+            pNORMAL,    // 0x37
+            pNORMAL,    // 0x38
+            pNORMAL,    // 0x39
+            pNORMAL,    // 0x3A
+            pNORMAL,    // 0x3B
+            pNORMAL,    // 0x3C
+            pNORMAL,    // 0x3D
+            pNORMAL,    // 0x3E
+    pNORMAL,    // OPC_EXTC=0x3F
+    pNORMAL,   // OPC_RLOC=0x40,
+    pNORMAL,   // OPC_QCON=0x41,
+    pLOW,   // OPC_SNN=0x42,
+    pNORMAL,   // OPC_ALOC=0x43,
+    pNORMAL,   // OPC_STMOD=0x44,
+    pNORMAL,   // OPC_PCON=0x45,
+    pNORMAL,   // OPC_KCON=0x46,
+    pNORMAL,   // OPC_DSPD=0x47,
+    pNORMAL,   // OPC_DFLG=0x48,
+    pNORMAL,   // OPC_DFNON=0x49,
+    pNORMAL,   // OPC_DFNOF=0x4A,
+            pNORMAL,    // 0x4B
+    pLOW,   // OPC_SSTAT=0x4C,
+            pNORMAL,    // 0x4D
+            pNORMAL,    // 0x4E
+    pLOW,   // OPC_NNRSM=0x4F,
+    pLOW,   // OPC_RQNN=0x50,
+    pLOW,   // OPC_NNREL=0x51,
+    pLOW,   // OPC_NNACK=0x52,
+    pLOW,   // OPC_NNLRN=0x53,
+    pLOW,   // OPC_NNULN=0x54,
+    pLOW,   // OPC_NNCLR=0x55,
+    pLOW,   // OPC_NNEVN=0x56,
+    pLOW,   // OPC_NERD=0x57,
+    pLOW,   // OPC_RQEVN=0x58,
+    pLOW,   // OPC_WRACK=0x59,
+    pLOW,   // OPC_RQDAT=0x5A,
+    pLOW,   // OPC_RQDDS=0x5B,
+    pLOW,   // OPC_BOOT=0x5C,
+    pLOW,   // OPC_ENUM=0x5D,
+    pLOW,   // OPC_NNRST=0x5E,
+    pLOW,   // OPC_EXTC1=0x5F,
+    pNORMAL,   // OPC_DFUN=0x60,
+    pNORMAL,   // OPC_GLOC=0x61,
+    pNORMAL,   // OPC_ERR=0x63,
+            pNORMAL,    // 0x64
+            pNORMAL,    // 0x65
+    pHIGH,   // OPC_SQU=0x66,
+            pNORMAL,    // 0x67
+            pNORMAL,    // 0x68
+            pNORMAL,    // 0x69
+            pNORMAL,    // 0x6A
+            pNORMAL,    // 0x6B
+            pNORMAL,    // 0x6C
+            pNORMAL,    // 0x6D
+            pNORMAL,    // 0x6E
+    pLOW,   // OPC_CMDERR=0x6F,
+    pLOW,   // OPC_EVNLF=0x70,
+    pLOW,   // OPC_NVRD=0x71,
+    pLOW,   // OPC_NENRD=0x72,
+    pLOW,   // OPC_RQNPN=0x73,
+    pLOW,   // OPC_NUMEV=0x74,
+    pLOW,   // OPC_CANID=0x75,
+    pLOW,   // OPC_MODE=0x76,
+            pNORMAL,    // 0x77
+    pLOW,   // OPC_RQSD=0x78,
+            pNORMAL,    // 0x79
+            pNORMAL,    // 0x7A
+            pNORMAL,    // 0x7B
+            pNORMAL,    // 0x7C
+            pNORMAL,    // 0x7D
+            pNORMAL,    // 0x7E
+    pLOW,   // OPC_EXTC2=0x7F,
+    pNORMAL,   // OPC_RDCC3=0x80,
+            pNORMAL,    // 0x81
+    pNORMAL,   // OPC_WCVO=0x82,
+    pNORMAL,   // OPC_WCVB=0x83,
+    pNORMAL,   // OPC_QCVS=0x84,
+    pNORMAL,   // OPC_PCVS=0x85,
+            pNORMAL,    // 0x86
+    pLOW,   // OPC_RDGN=0x87,
+            pNORMAL,    // 0x88
+            pNORMAL,    // 0x89
+            pNORMAL,    // 0x8A
+            pNORMAL,    // 0x8B
+    pLOW,   // OPC_SD=0x8C,
+            pNORMAL,    // 0x8D
+    pLOW,   // OPC_NVSETRD=0x8E,
+            pNORMAL,    // 0x8F
+    pLOW,   // OPC_ACON=0x90,
+    pLOW,   // OPC_ACOF=0x91,
+    pLOW,   // OPC_AREQ=0x92,
+    pLOW,   // OPC_ARON=0x93,
+    pLOW,   // OPC_AROF=0x94,
+    pLOW,   // OPC_EVULN=0x95,
+    pLOW,   // OPC_NVSET=0x96,
+    pLOW,   // OPC_NVANS=0x97,
+    pLOW,   // OPC_ASON=0x98,
+    pLOW,   // OPC_ASOF=0x99,
+    pLOW,   // OPC_ASRQ=0x9A,
+    pLOW,   // OPC_PARAN=0x9B,
+    pLOW,   // OPC_REVAL=0x9C,
+    pLOW,   // OPC_ARSON=0x9D,
+    pLOW,   // OPC_ARSOF=0x9E,
+    pLOW,   // OPC_EXTC3=0x9F
+    pNORMAL,   // OPC_RDCC4=0xA0,
+            pNORMAL,    // 0xA1
+    pNORMAL,   // OPC_WCVS=0xA2,
+            pNORMAL,    // 0xA3
+            pNORMAL,    // 0xA4
+            pNORMAL,    // 0xA5
+            pNORMAL,    // 0xA6
+            pNORMAL,    // 0xA7
+            pNORMAL,    // 0xA8
+            pNORMAL,    // 0xA9
+            pNORMAL,    // 0xAA
+    pLOW,   // OPC_HEARTB=0xAB,
+            pNORMAL,    // 0xAC
+            pNORMAL,    // 0xAD
+            pNORMAL,    // 0xAE
+    pLOW,   // OPC_GRSP=0xAF,
+    pLOW,   // OPC_ACON1=0xB0,
+    pLOW,   // OPC_ACOF1=0xB1,
+    pLOW,   // OPC_REQEV=0xB2,
+    pLOW,   // OPC_ARON1=0xB3,
+    pLOW,   // OPC_AROF1=0xB4,
+    pLOW,   // OPC_NEVAL=0xB5,
+    pLOW,   // OPC_PNN=0xB6,
+           pNORMAL,    // 0xB7
+    pLOW,   // OPC_ASON1=0xB8,
+    pLOW,   // OPC_ASOF1=0xB9,
+           pNORMAL,    // 0xBA
+           pNORMAL,    // 0xBB
+           pNORMAL,    // 0xBC
+    pLOW,   // OPC_ARSON1=0xBD,
+    pLOW,   // OPC_ARSOF1=0xBE,
+    pLOW,   // OPC_EXTC4=0xBF,
+    pNORMAL,   // OPC_RDCC5=0xC0,
+    pNORMAL,   // OPC_WCVOA=0xC1,
+    pNORMAL,   // OPC_CABDAT=0xC2,
+           pNORMAL,    // 0xC3
+           pNORMAL,    // 0xC4
+           pNORMAL,    // 0xC5
+           pNORMAL,    // 0xC6
+    pLOW,   // OPC_DGN=0xC7,
+           pNORMAL,    // 0xC8
+           pNORMAL,    // 0xC9
+           pNORMAL,    // 0xCA
+           pNORMAL,    // 0xCB
+           pNORMAL,    // 0xCC
+           pNORMAL,    // 0xCD
+           pNORMAL,    // 0xCE
+    pNORMAL,   // OPC_FCLK=0xCF,
+    pLOW,   // OPC_ACON2=0xD0,
+    pLOW,   // OPC_ACOF2=0xD1,
+    pLOW,   // OPC_EVLRN=0xD2,
+    pLOW,   // OPC_EVANS=0xD3,
+    pLOW,   // OPC_ARON2=0xD4,
+    pLOW,   // OPC_AROF2=0xD5,
+           pNORMAL,    // 0xD6
+           pNORMAL,    // 0xD7
+    pLOW,   // OPC_ASON2=0xD8,
+    pLOW,   // OPC_ASOF2=0xD9,
+           pNORMAL,    // 0xDA
+           pNORMAL,    // 0xDB
+           pNORMAL,    // 0xDC
+    pLOW,   // OPC_ARSON2=0xDD,
+    pLOW,   // OPC_ARSOF2=0xDE,
+    pLOW,   // OPC_EXTC5=0xDF,
+    pNORMAL,   // OPC_RDCC6=0xE0,
+    pNORMAL,   // OPC_PLOC=0xE1,
+    pLOW,   // OPC_NAME=0xE2,
+    pNORMAL,   // OPC_STAT=0xE3,
+           pNORMAL,    // 0xE4
+           pNORMAL,    // 0xE5
+    pLOW,   // OPC_ENACK=0xE6,
+    pLOW,   // OPC_ESD=0xE7,
+           pNORMAL,    // 0xE8
+    pLOW,   // OPC_ESD=0xE9,
+           pNORMAL,    // 0xEA
+           pNORMAL,    // 0xEB
+           pNORMAL,    // 0xEC
+           pNORMAL,    // 0xED
+           pNORMAL,    // 0xEE
+    pLOW,   // OPC_PARAMS=0xEF,
+    pLOW,   // OPC_ACON3=0xF0,
+    pLOW,   // OPC_ACOF3=0xF1,
+    pLOW,   // OPC_ENRSP=0xF2,
+    pLOW,   // OPC_ARON3=0xF3,
+    pLOW,   // OPC_AROF3=0xF4,
+    pLOW,   // OPC_EVLRNI=0xF5,
+    pLOW,   // OPC_ACDAT=0xF6,
+    pLOW,   // OPC_ARDAT=0xF7,
+    pLOW,   // OPC_ASON3=0xF8,
+    pLOW,   // OPC_ASOF3=0xF9,
+    pLOW,   // OPC_DDES=0xFA,
+    pLOW,   // OPC_DDRS=0xFB,
+    pLOW,   // OPC_ARSON3=0xFD,
+    pLOW,   // OPC_ARSOF3=0xFE
+           pNORMAL,    // 0xFF
+};
+
 //CAN SERVICE
 
 /**
@@ -267,6 +522,12 @@ void canPowerUp(void) {
     TXB0CONbits.TXPRI0 = 0;                           // Set buffer priority, so will be sent after any self enumeration packets
     TXB0CONbits.TXPRI1 = 0;
     TXB0DLC = 0;                                      // Not RTR, payload length will be set by transmit routine
+    // TODO change the way TXB0 SIDL and SIDH are set
+    //pHIGH   = 0b10000000000,
+    //pABOVE  = 0b10010000000,
+    //pNORMAL = 0b10100000000,
+    //pLOW    = 0b10110000000
+    
     TXB0SIDH = 0b10110000 | ((canId & 0x78) >> 3);     // Set CAN priority and ms 4 bits of can id
     TXB0SIDL = (uint8_t)((canId & 0x07) << 5);         // LS 3 bits of can id and extended id to zero
 
@@ -317,6 +578,8 @@ Processed canProcessMessage(Message * m) {
         case OPC_ENUM:
         case OPC_CANID:
             return PROCESSED;
+        default:
+            break;
     }
     return NOT_PROCESSED;
 }
@@ -491,8 +754,8 @@ void checkTxFifo( void ) {
         mp = pop(&txQueue);
         if (mp != NULL) {  // If data waiting in software fifo, and buffer ready
             // TXB0 is the message transmit buffer
-            //TXB0SIDL = 0;       // TODO fill in SIDL
-            //TXB0SIDH = 0;       // TODO fill in SIDH
+            //TXB0SIDL = 0;       // TODO fill in SIDL using message priority
+            //TXB0SIDH = 0;       // TODO fill in SIDH using message priority
             TXB0D0 = mp->opc;
             TXB0D1 = mp->bytes[0];
             TXB0D2 = mp->bytes[1];
@@ -718,6 +981,7 @@ void processEnumeration(void) {
 CanidResult setNewCanId(uint8_t newCanId) {
     if ((newCanId >= 1) && (newCanId <= 99)) {
         canId = newCanId;
+        // TODO change the way that TXB0 SIDH and SIDL are set
         TXB0SIDH &= 0b11110000;                // Clear canid bits
         TXB0SIDH |= ((newCanId & 0x78) >>3);  // Set new can id for CUBS packet transmissions
         TXB0SIDL = (uint8_t)((newCanId & 0x07) << 5);

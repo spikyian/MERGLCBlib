@@ -109,9 +109,10 @@ void main(void) {
     uint8_t i;
     
     // ensure that the services array is initialised to empty
+    /*
     for (i=0; i<NUM_SERVICES; i++) {
         services[i] = NULL;
-    }
+    } */
 #if defined(_PIC18)
     RCONbits.IPEN = 1;  // enable interrupt priority
 #endif

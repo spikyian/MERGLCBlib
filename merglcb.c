@@ -35,6 +35,7 @@
 
 #include "merglcb.h"
 #include "module.h"
+// TODO merge with main.c
 /** Module.h has module/application specific definitions which influence the
  * behaviour of MERGLCB.
  * 
@@ -176,7 +177,7 @@
 /**
  * The list of services implemented by the module.
  */
-const Service * services[NUM_SERVICES];   // Services stored in Flash
+//extern const Service * services[];   // Services stored in Flash
 
 /**
  * The module's transport interface.
@@ -381,7 +382,7 @@ void lowIsr(void) {
  * Send a message with just OPC.
  * @param opc opcode
  */
-void sendMessage0(uint8_t opc){
+void sendMessage0(Opcode opc){
     sendMessage(opc, 1, 0,0,0,0,0,0,0);
 }
 
@@ -390,7 +391,7 @@ void sendMessage0(uint8_t opc){
  * @param opc opcode
  * @param data1 data byte
  */
-void sendMessage1(uint8_t opc, uint8_t data1){
+void sendMessage1(Opcode opc, uint8_t data1){
     sendMessage(opc, 2, data1, 0,0,0,0,0,0);
 }
 
@@ -400,7 +401,7 @@ void sendMessage1(uint8_t opc, uint8_t data1){
  * @param data1 data byte 1
  * @param data2 data byte 2
  */
-void sendMessage2(uint8_t opc, uint8_t data1, uint8_t data2){
+void sendMessage2(Opcode opc, uint8_t data1, uint8_t data2){
     sendMessage(opc, 3, data1, data2, 0,0,0,0,0);
 }
 
@@ -411,7 +412,7 @@ void sendMessage2(uint8_t opc, uint8_t data1, uint8_t data2){
  * @param data2 data byte 2
  * @param data3 data byte 3
  */
-void sendMessage3(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3) {
+void sendMessage3(Opcode opc, uint8_t data1, uint8_t data2, uint8_t data3) {
     sendMessage(opc, 4, data1, data2, data3, 0,0,0,0);
 }
 
@@ -423,7 +424,7 @@ void sendMessage3(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3) {
  * @param data3 data byte 3
  * @param data4 data byte 4
  */
-void sendMessage4(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4){
+void sendMessage4(Opcode opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4){
     sendMessage(opc, 5, data1, data2, data3, data4, 0,0,0);
 }
 
@@ -436,7 +437,7 @@ void sendMessage4(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint
  * @param data4 data byte 4
  * @param data5 data byte 5
  */
-void sendMessage5(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5) {
+void sendMessage5(Opcode opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5) {
     sendMessage(opc, 6, data1, data2, data3, data4, data5, 0,0);
 }
 
@@ -450,7 +451,7 @@ void sendMessage5(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint
  * @param data5 data byte 5
  * @param data6 data byte 6
  */
-void sendMessage6(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6) {
+void sendMessage6(Opcode opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6) {
     sendMessage(opc, 7, data1, data2, data3, data4, data5, data6,0);
 }
 
@@ -465,7 +466,7 @@ void sendMessage6(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint
  * @param data6 data byte 6
  * @param data7 data byte 7
  */
-void sendMessage7(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6, uint8_t data7) {
+void sendMessage7(Opcode opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6, uint8_t data7) {
     sendMessage(opc, 8, data1, data2, data3, data4, data5, data6, data7);
 }
 
@@ -481,7 +482,7 @@ void sendMessage7(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint
  * @param data6
  * @param data7
  */
-void sendMessage(uint8_t opc, uint8_t len, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6, uint8_t data7) {
+void sendMessage(Opcode opc, uint8_t len, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6, uint8_t data7) {
     tmpMessage.opc = opc;
     tmpMessage.len = len;
     tmpMessage.bytes[0] = data1;

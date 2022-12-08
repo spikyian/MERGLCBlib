@@ -268,6 +268,8 @@ Processed mnsProcessMessage(Message * m) {
                 }
                 sendMessage5(OPC_PNN, 0,0, MANU_MERG, MTYP_MERGLCB, flags);
                 return PROCESSED;
+            default:
+                break;
         }
         return NOT_PROCESSED;
     }
@@ -291,6 +293,8 @@ Processed mnsProcessMessage(Message * m) {
             }
             sendMessage5(OPC_PNN, nn.bytes.hi,nn.bytes.lo, MANU_MERG, MTYP_MERGLCB, flags);
             return PROCESSED;
+        default:
+            break;
     }
     
     // With NN - check it is us
@@ -491,6 +495,8 @@ Processed mnsProcessMessage(Message * m) {
         case OPC_NNRST: // reset CPU
             RESET();
             return PROCESSED;
+        default:
+            break;
     }
     return NOT_PROCESSED;
 }
@@ -699,9 +705,9 @@ TimedResponseResult mnsTRserviceDiscoveryCallback(uint8_t type, const Service * 
     if (step >= NUM_SERVICES) {
         return TIMED_RESPONSE_RESULT_FINISHED;
     }
-    if (services[step] != NULL) {
+//    if (services[step] != NULL) {
         sendMessage4(OPC_SD, nn.bytes.hi, nn.bytes.lo, services[step]->serviceNo, services[step]->version);
-    }
+//    }
     return TIMED_RESPONSE_RESULT_NEXT;
 }
 

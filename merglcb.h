@@ -49,182 +49,6 @@
 #define SERVICE_ID_EVENTACK 9
 #define SERVICE_ID_BOOT     10
 
-
-// 
-// MERGLCB opcodes list
-// 
-// Packets with no data bytes
-// 
-// TODO convert opcodes to enum
-#define OPC_ACK     0x00	// General ack
-#define OPC_NAK     0x01	// General nak
-#define OPC_HLT     0x02	// Bus Halt
-#define OPC_BON     0x03	// Bus on
-#define OPC_TOF     0x04	// Track off
-#define OPC_TON     0x05	// Track on
-#define OPC_ESTOP	0x06	// Track stopped
-#define OPC_ARST	0x07	// System reset
-#define OPC_RTOF	0x08	// Request track off
-#define OPC_RTON	0x09	// Request track on
-#define OPC_RESTP	0x0a	// Request emergency stop all
-#define OPC_RSTAT	0x0c	// Request node status
-#define OPC_QNN     0x0d	// Query nodes
-#define OPC_RQNP	0x10	// Read node parameters
-#define OPC_RQMN	0x11	// Request name of module type
-// 
-// Packets with 1 data byte
-// 
-#define OPC_KLOC	0x21	// Release engine by handle
-#define OPC_QLOC	0x22	// Query engine by handle
-#define OPC_DKEEP	0x23	// Keep alive for cab
-#define OPC_DBG1	0x30	// Debug message with 1 status byte
-#define OPC_EXTC	0x3F	// Extended opcode
-// 
-// Packets with 2 data bytes
-// 
-#define OPC_RLOC	0x40	// Request session for loco
-#define OPC_QCON	0x41	// Query consist
-#define OPC_SNN     0x42	// Set node number
-#define OPC_ALOC	0X43	// Allocate loco (used to allocate to a shuttle in cancmd)
-#define OPC_STMOD	0x44	// Set Throttle mode
-#define OPC_PCON	0x45	// Consist loco
-#define OPC_KCON	0x46	// De-consist loco
-#define OPC_DSPD	0x47	// Loco speed/dir
-#define OPC_DFLG	0x48	// Set engine flags
-#define OPC_DFNON	0x49	// Loco function on
-#define OPC_DFNOF	0x4A	// Loco function off
-#define OPC_SSTAT	0x4C	// Service mode status
-#define OPC_NNRSM	0x4F	// Reset to manufacturer's defaults
-#define OPC_RQNN	0x50	// Request Node number in setup mode
-#define OPC_NNREL	0x51	// Node number release
-#define OPC_NNACK	0x52	// Node number acknowledge
-#define OPC_NNLRN	0x53	// Set learn mode
-#define OPC_NNULN	0x54	// Release learn mode
-#define OPC_NNCLR	0x55	// Clear all events
-#define OPC_NNEVN	0x56	// Read available event slots
-#define OPC_NERD	0x57	// Read all stored events
-#define OPC_RQEVN	0x58	// Read number of stored events
-#define OPC_WRACK	0x59	// Write acknowledge
-#define OPC_RQDAT	0x5A	// Request node data event
-#define OPC_RQDDS	0x5B	// Request short data frame
-#define OPC_BOOT	0x5C	// Put node into boot mode
-#define OPC_ENUM	0x5D	// Force can_id self enumeration
-#define OPC_NNRST	0x5E	// Reset node (as in restart)
-#define OPC_EXTC1	0x5F	// Extended opcode with 1 data byte
-// 
-// Packets with 3 data bytes
-// 
-#define OPC_DFUN	0x60	// Set engine functions
-#define OPC_GLOC	0x61	// Get loco (with support for steal/share)
-#define OPC_ERR     0x63	// Command station error
-#define OPC_CMDERR	0x6F	// Errors from nodes during config
-#define OPC_EVNLF	0x70	// Event slots left response
-#define OPC_NVRD	0x71	// Request read of node variable
-#define OPC_NENRD	0x72	// Request read stored event by index
-#define OPC_RQNPN	0x73	// Request read module parameters
-#define OPC_NUMEV	0x74	// Number of events stored response
-#define OPC_CANID	0x75	// Set canid
-#define OPC_EXTC2	0x7F	// Extended opcode with 2 data bytes
-// 
-// Packets with 4 data bytes
-// 
-#define OPC_RDCC3	0x80	// 3 byte DCC packet
-#define OPC_WCVO	0x82	// Write CV byte Ops mode by handle
-#define OPC_WCVB	0x83	// Write CV bit Ops mode by handle
-#define OPC_QCVS	0x84	// Read CV
-#define OPC_PCVS	0x85	// Report CV
-#define OPC_NVSETRD 0x8E    // Set and read back NV
-#define OPC_ACON	0x90	// on event
-#define OPC_ACOF	0x91	// off event
-#define OPC_AREQ	0x92	// Accessory Request event
-#define OPC_ARON	0x93	// Accessory response event on
-#define OPC_AROF	0x94	// Accessory response event off
-#define OPC_EVULN	0x95	// Unlearn event
-#define OPC_NVSET	0x96	// Set a node variable
-#define OPC_NVANS	0x97	// Node variable value response
-#define OPC_ASON	0x98	// Short event on
-#define OPC_ASOF	0x99	// Short event off
-#define OPC_ASRQ	0x9A	// Short Request event
-#define OPC_PARAN	0x9B	// Single node parameter response
-#define OPC_REVAL	0x9C	// Request read of event variable
-#define OPC_ARSON	0x9D	// Accessory short response on event
-#define OPC_ARSOF	0x9E	// Accessory short response off event
-#define OPC_EXTC3	0x9F	// Extended opcode with 3 data bytes
-// 
-// Packets with 5 data bytes
-// 
-#define OPC_RDCC4	0xA0	// 4 byte DCC packet
-#define OPC_WCVS	0xA2	// Write CV service mode
-#define OPC_GRSP    0xAF    // Generic response
-#define OPC_ACON1	0xB0	// On event with one data byte
-#define OPC_ACOF1	0xB1	// Off event with one data byte
-#define OPC_REQEV	0xB2	// Read event variable in learn mode
-#define OPC_ARON1	0xB3	// Accessory on response (1 data byte)
-#define OPC_AROF1	0xB4	// Accessory off response (1 data byte)
-#define OPC_NEVAL	0xB5	// Event variable by index read response
-#define OPC_PNN     0xB6	// Response to QNN
-#define OPC_ASON1	0xB8	// Accessory short on with 1 data byte
-#define OPC_ASOF1	0xB9	// Accessory short off with 1 data byte
-#define OPC_ARSON1	0xBD	// Short response event on with one data byte
-#define OPC_ARSOF1	0xBE	// Short response event off with one data byte
-#define OPC_EXTC4	0xBF	// Extended opcode with 4 data bytes
-// 
-// Packets with 6 data bytes
-// 
-#define OPC_RDCC5	0xC0	// 5 byte DCC packet
-#define OPC_WCVOA	0xC1	// Write CV ops mode by address
-#define OPC_CABDAT	0xC2	// Cab data (cab signalling)
-#define OPC_FCLK	0xCF	// Fast clock
-#define OPC_ACON2	0xD0	// On event with two data bytes
-#define OPC_ACOF2	0xD1	// Off event with two data bytes
-#define OPC_EVLRN	0xd2	// Teach event
-#define OPC_EVANS	0xd3	// Event variable read response in learn mode
-#define OPC_ARON2	0xD4	// Accessory on response
-#define OPC_AROF2	0xD5	// Accessory off response
-#define OPC_ASON2	0xD8	// Accessory short on with 2 data bytes
-#define OPC_ASOF2	0xD9	// Accessory short off with 2 data bytes
-#define OPC_ARSON2	0xDD	// Short response event on with two data bytes
-#define OPC_ARSOF2	0xDE	// Short response event off with two data bytes
-#define OPC_EXTC5	0xDF	// Extended opcode with 5 data bytes
-// 
-// Packets with 7 data bytes
-// 
-#define OPC_RDCC6	0xE0	// 6 byte DCC packets
-#define OPC_PLOC	0xE1	// Loco session report
-#define OPC_NAME	0xE2	// Module name response
-#define OPC_STAT	0xE3	// Command station status report
-#define OPC_DTXC	0xE9	// CBUS long message packet
-#define OPC_PARAMS	0xEF	// Node parameters response
-#define OPC_ACON3	0xF0	// On event with 3 data bytes
-#define OPC_ACOF3	0xF1	// Off event with 3 data bytes
-#define OPC_ENRSP	0xF2	// Read node events response
-#define OPC_ARON3	0xF3	// Accessory on response
-#define OPC_AROF3	0xF4	// Accessory off response
-#define OPC_EVLRNI	0xF5	// Teach event using event indexing
-#define OPC_ACDAT	0xF6	// Accessory data event: 5 bytes of node data (eg: RFID)
-#define OPC_ARDAT	0xF7	// Accessory data response
-#define OPC_ASON3	0xF8	// Accessory short on with 3 data bytes
-#define OPC_ASOF3	0xF9	// Accessory short off with 3 data bytes
-#define OPC_DDES	0xFA	// Short data frame aka device data event (device id plus 5 data bytes)
-#define OPC_DDRS	0xFB	// Short data frame response aka device data response
-#define OPC_DDWS	0xFC	// Device Data Write Short
-#define OPC_ARSON3	0xFD	// Short response event on with 3 data bytes
-#define OPC_ARSOF3	0xFE	// Short response event off with 3 data bytes
-#define OPC_EXTC6	0xFF	// Extended opcode with 6 data byes
-
-//
-// This block are the MERGLCB additions to CBUS
-//
-#define OPC_SQU     0x4E
-#define OPC_RQSD    0x78
-#define OPC_MODE    0x76
-#define OPC_RDGN    0x87
-#define OPC_SD      0x8C
-#define OPC_HEARTB  0xAB
-#define OPC_DGN     0xC7
-#define OPC_ENACK   0xE6
-#define OPC_ESD     0xE7
-
 //
 // MANUFACTURER  - Used in the parameter block. 
 #define MANU_MERG	165
@@ -346,26 +170,185 @@
 #define ARMCortex_A7	2	// As Used in Raspberry Pi 2
 #define ARMCortex_A53	3	// As used in Raspberry Pi 3
 
+
+/*
+ * Message priorities
+ */
+typedef enum Priority {
+    pHIGH,
+    pABOVE,
+    pNORMAL,
+    pLOW
+} Priority;
+
+
+// 
+// MERGLCB opcodes list
+//
+typedef enum Opcode {
+    OPC_ACK=0x00,
+    OPC_NAK=0x01,
+    OPC_HLT=0x02,
+    OPC_BON=0x03,
+    OPC_TOF=0x04,
+    OPC_TON=0x05,
+    OPC_ESTOP=0x06,
+    OPC_ARST=0x07,
+    OPC_RTOF=0x08,
+    OPC_RTON=0x09,
+    OPC_RESTP=0x0A,
+    OPC_RSTAT=0x0C,
+    OPC_QNN=0x0D,
+    OPC_RQNP=0x10,
+    OPC_RQMN=0x11,
+    OPC_KLOC=0x21,
+    OPC_QLOC=0x22,
+    OPC_DKEEP=0x23,
+    OPC_DBG1=0x30,
+    OPC_EXTC=0x3F,
+    OPC_RLOC=0x40,
+    OPC_QCON=0x41,
+    OPC_SNN=0x42,
+    OPC_ALOC=0x43,
+    OPC_STMOD=0x44,
+    OPC_PCON=0x45,
+    OPC_KCON=0x46,
+    OPC_DSPD=0x47,
+    OPC_DFLG=0x48,
+    OPC_DFNON=0x49,
+    OPC_DFNOF=0x4A,
+    OPC_SSTAT=0x4C,
+    OPC_NNRSM=0x4F,
+    OPC_RQNN=0x50,
+    OPC_NNREL=0x51,
+    OPC_NNACK=0x52,
+    OPC_NNLRN=0x53,
+    OPC_NNULN=0x54,
+    OPC_NNCLR=0x55,
+    OPC_NNEVN=0x56,
+    OPC_NERD=0x57,
+    OPC_RQEVN=0x58,
+    OPC_WRACK=0x59,
+    OPC_RQDAT=0x5A,
+    OPC_RQDDS=0x5B,
+    OPC_BOOT=0x5C,
+    OPC_ENUM=0x5D,
+    OPC_NNRST=0x5E,
+    OPC_EXTC1=0x5F,
+    OPC_DFUN=0x60,
+    OPC_GLOC=0x61,
+    OPC_ERR=0x63,
+    OPC_SQU=0x66,
+    OPC_CMDERR=0x6F,
+    OPC_EVNLF=0x70,
+    OPC_NVRD=0x71,
+    OPC_NENRD=0x72,
+    OPC_RQNPN=0x73,
+    OPC_NUMEV=0x74,
+    OPC_CANID=0x75,
+    OPC_MODE=0x76,
+    OPC_RQSD=0x78,
+    OPC_EXTC2=0x7F,
+    OPC_RDCC3=0x80,
+    OPC_WCVO=0x82,
+    OPC_WCVB=0x83,
+    OPC_QCVS=0x84,
+    OPC_PCVS=0x85,
+    OPC_RDGN=0x87,
+    OPC_SD=0x8C,
+    OPC_NVSETRD=0x8E,
+    OPC_ACON=0x90,
+    OPC_ACOF=0x91,
+    OPC_AREQ=0x92,
+    OPC_ARON=0x93,
+    OPC_AROF=0x94,
+    OPC_EVULN=0x95,
+    OPC_NVSET=0x96,
+    OPC_NVANS=0x97,
+    OPC_ASON=0x98,
+    OPC_ASOF=0x99,
+    OPC_ASRQ=0x9A,
+    OPC_PARAN=0x9B,
+    OPC_REVAL=0x9C,
+    OPC_ARSON=0x9D,
+    OPC_ARSOF=0x9E,
+    OPC_EXTC3=0x9F,
+    OPC_RDCC4=0xA0,
+    OPC_WCVS=0xA2,
+    OPC_HEARTB=0xAB,
+    OPC_GRSP=0xAF,
+    OPC_ACON1=0xB0,
+    OPC_ACOF1=0xB1,
+    OPC_REQEV=0xB2,
+    OPC_ARON1=0xB3,
+    OPC_AROF1=0xB4,
+    OPC_NEVAL=0xB5,
+    OPC_PNN=0xB6,
+    OPC_ASON1=0xB8,
+    OPC_ASOF1=0xB9,
+    OPC_ARSON1=0xBD,
+    OPC_ARSOF1=0xBE,
+    OPC_EXTC4=0xBF,
+    OPC_RDCC5=0xC0,
+    OPC_WCVOA=0xC1,
+    OPC_CABDAT=0xC2,
+    OPC_DGN=0xC7,
+    OPC_FCLK=0xCF,
+    OPC_ACON2=0xD0,
+    OPC_ACOF2=0xD1,
+    OPC_EVLRN=0xD2,
+    OPC_EVANS=0xD3,
+    OPC_ARON2=0xD4,
+    OPC_AROF2=0xD5,
+    OPC_ASON2=0xD8,
+    OPC_ASOF2=0xD9,
+    OPC_ARSON2=0xDD,
+    OPC_ARSOF2=0xDE,
+    OPC_EXTC5=0xDF,
+    OPC_RDCC6=0xE0,
+    OPC_PLOC=0xE1,
+    OPC_NAME=0xE2,
+    OPC_STAT=0xE3,
+    OPC_ENACK=0xE6,
+    OPC_DTXC=0xE9,
+    OPC_ESD=0xE7,
+    OPC_PARAMS=0xEF,
+    OPC_ACON3=0xF0,
+    OPC_ACOF3=0xF1,
+    OPC_ENRSP=0xF2,
+    OPC_ARON3=0xF3,
+    OPC_AROF3=0xF4,
+    OPC_EVLRNI=0xF5,
+    OPC_ACDAT=0xF6,
+    OPC_ARDAT=0xF7,
+    OPC_ASON3=0xF8,
+    OPC_ASOF3=0xF9,
+    OPC_DDES=0xFA,
+    OPC_DDRS=0xFB,
+    OPC_ARSON3=0xFD,
+    OPC_ARSOF3=0xFE
+} Opcode;
+
 // Functions to send a MERGLCB message on any defined transport layer
 // XC8 doesn't support function overloading nor varargs
 /**
  * Send a message with just OPC.
  * @param opc opcode
  */
-void sendMessage0(uint8_t opc);
+void sendMessage0(Opcode opc);
 /**
  * Send a message with OPC and 1 data byte.
  * @param opc opcode
  * @param data1 data byte
  */
-void sendMessage1(uint8_t opc, uint8_t data1);
+void sendMessage1(Opcode opc, uint8_t data1);
 /**
  * Send a message with OPC and 2 data bytes.
  * @param opc opcode
  * @param data1 data byte 1
  * @param data2 data byte 2
  */
-void sendMessage2(uint8_t opc, uint8_t data1, uint8_t data2);
+void sendMessage2(Opcode opc, uint8_t data1, uint8_t data2);
 /**
  * Send a message with OPC and 3 data bytes.
  * @param opc opcode
@@ -373,7 +356,7 @@ void sendMessage2(uint8_t opc, uint8_t data1, uint8_t data2);
  * @param data2 data byte 2
  * @param data3 data byte 3
  */
-void sendMessage3(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3);
+void sendMessage3(Opcode opc, uint8_t data1, uint8_t data2, uint8_t data3);
 /**
  * Send a message with OPC and 4 data bytes.
  * @param opc opcode
@@ -382,7 +365,7 @@ void sendMessage3(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3);
  * @param data3 data byte 3
  * @param data4 data byte 4
  */
-void sendMessage4(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4);
+void sendMessage4(Opcode opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4);
 /**
  * Send a message with OPC and 5 data bytes.
  * @param opc opcode
@@ -392,7 +375,7 @@ void sendMessage4(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint
  * @param data4 data byte 4
  * @param data5 data byte 5
  */
-void sendMessage5(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5);
+void sendMessage5(Opcode opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5);
 /**
  * Send a message with OPC and 6 data bytes.
  * @param opc opcode
@@ -403,7 +386,7 @@ void sendMessage5(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint
  * @param data5 data byte 5
  * @param data6 data byte 6
  */
-void sendMessage6(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6);
+void sendMessage6(Opcode opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6);
 /**
  * Send a message with OPC and 7 data bytes.
  * @param opc opcode
@@ -415,7 +398,7 @@ void sendMessage6(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint
  * @param data6 data byte 6
  * @param data7 data byte 7
  */
-void sendMessage7(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6, uint8_t data7);
+void sendMessage7(Opcode opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6, uint8_t data7);
 /**
  * Send a message of variable length with OPC and up to 7 data bytes.
  * @param opc
@@ -428,7 +411,7 @@ void sendMessage7(uint8_t opc, uint8_t data1, uint8_t data2, uint8_t data3, uint
  * @param data6
  * @param data7
  */
-void sendMessage(uint8_t opc, uint8_t len, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6, uint8_t data7);
+void sendMessage(Opcode opc, uint8_t len, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6, uint8_t data7);
 
 /**
  * The Message structure contains a MERGLCB message. It contain the opcode
@@ -436,7 +419,7 @@ void sendMessage(uint8_t opc, uint8_t len, uint8_t data1, uint8_t data2, uint8_t
  */
 typedef struct Message {
     uint8_t len;        // message length
-    uint8_t opc;        // The opcode
+    Opcode opc;        // The opcode
     uint8_t bytes[7];   // any data bytes
 } Message;
 
@@ -501,7 +484,7 @@ typedef struct Service {
 /**
  * The list of services supported by the module.
  */
-extern const Service * services[];
+extern const Service * const services[];
 
 typedef enum ServicePresent {
     NOT_PRESENT=0,
