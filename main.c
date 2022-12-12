@@ -39,6 +39,7 @@
 #include "merglcb.h"
 #include "module.h"
 #include "romops.h"
+#include "hardware.h"
 
 /*
  * This are some hacks to ensure that the ISRs are located at addresses to
@@ -102,32 +103,31 @@ void LOW_INT_VECT(void)
 uint8_t eeBootFlag = 0;
 #endif
 
-extern void init(void);
+extern void setup(void);
 extern void loop(void);
 
 void main(void) {
     uint8_t i;
     
-    // ensure that the services array is initialised to empty
-    /*
-    for (i=0; i<NUM_SERVICES; i++) {
-        services[i] = NULL;
-    } */
 #if defined(_PIC18)
     RCONbits.IPEN = 1;  // enable interrupt priority
 #endif
-    // call the application's init to add the services it needs
-    init();
+     
     // init the romops ready for flash writes
     initRomOps();
     
     if (readNVM(NV_NVM_TYPE, NV_ADDRESS) != APP_NVM_VERSION) {
         factoryReset();
     }
-    // now initialise the services
+    
+    // initialise the services
     powerUp();
     
-    ei();   // enable the interrupts an d ready to go
+    // call the application's init 
+    setup();
+    
+    // enable the interrupts and ready to go
+    bothEi();   
     while(1) {
         // poll the services as quickly as possible.
         // up to service to ignore the polls it doesn't need.

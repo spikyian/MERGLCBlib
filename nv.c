@@ -49,12 +49,16 @@
 #include "nv.h"
 #include "mns.h"
 #include "romops.h"
+#include "timedResponse.h"
 
 // forward declarations
 static void loadNVcahe(void);
 void nvFactoryReset(void);
 void nvPowerUp(void);
 Processed nvProcessMessage(Message *m);
+TimedResponseResult nvTRnvrdCallback(uint8_t type, const Service * s, uint8_t step);
+
+#define TIMED_RESPONSE_NVRD OPC_NVRD
 
 // service definition
 const Service nvService = {
@@ -86,7 +90,7 @@ extern void APP_nvValueChanged(uint8_t index, uint8_t value, uint8_t oldValue);
 void nvFactoryReset(void) {
     uint8_t i;
     for (i=1; i<= NV_NUM; i++) {
-        writeNVM(NV_NVM_TYPE, i, APP_nvDefault(i));
+        writeNVM(NV_NVM_TYPE, NV_ADDRESS+i, APP_nvDefault(i));
     }
 }
 
@@ -108,7 +112,7 @@ static void loadNVcahe(void) {
     uint8_t i;
     int16_t temp;
     
-    for (i=0; i<= NV_NUM; i++) {
+    for (i=1; i<= NV_NUM; i++) {
         temp = readNVM(NV_NVM_TYPE, NV_ADDRESS+i);
         if (temp < 0) {
             // unsure how to handle an error here
@@ -154,9 +158,10 @@ uint8_t setNV(uint8_t index, uint8_t value) {
 #ifdef NV_CACHE
     oldValue = nvCache[index];
     nvCache[index] = value;
+    writeNVM(NV_NVM_TYPE, NV_ADDRESS+index, value);
 #else
     oldValue = readNVM(NV_NVM_TYPE, NV_ADDRESS+index);
-    check = writeNVM(NV_NVM_TYPE, NV_ADDRESS+index, value);
+    writeNVM(NV_NVM_TYPE, NV_ADDRESS+index, value);
 #endif
     APP_nvValueChanged(index, value, oldValue);
     return 0;
@@ -169,13 +174,17 @@ uint8_t setNV(uint8_t index, uint8_t value) {
  */
 Processed nvProcessMessage(Message * m) {
     int16_t valueOrError;
+    
+    if (m->len < 3) {
+        return NOT_PROCESSED;
+    }
     // check NN matches us
     if (m->bytes[0] != nn.bytes.hi) return NOT_PROCESSED;
     if (m->bytes[1] != nn.bytes.lo) return NOT_PROCESSED;
     
     switch (m->opc) {
         case OPC_NVRD:
-            if (m->len <= 3) {
+            if (m->len < 4) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, CMDERR_INV_CMD);
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
                 return PROCESSED;
@@ -186,13 +195,14 @@ Processed nvProcessMessage(Message * m) {
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, (uint8_t)(-valueOrError));
                 return PROCESSED;
             }
-            sendMessage3(OPC_NVANS, nn.bytes.hi, nn.bytes.lo, (uint8_t)(valueOrError));
+            sendMessage4(OPC_NVANS, nn.bytes.hi, nn.bytes.lo, m->bytes[2], (uint8_t)(valueOrError));
             if (m->bytes[2] == 0) {
-                // TODO do the NVANS sequence with TimedResponse
+                // a NVANS response for all of the NVs
+                startTimedResponse(TIMED_RESPONSE_NVRD, SERVICE_ID_NV, &nvTRnvrdCallback);
             }
             return PROCESSED;
         case OPC_NVSET:
-            if (m->len <= 4) {
+            if (m->len < 5) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, CMDERR_INV_CMD);
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
                 return PROCESSED;
@@ -207,7 +217,7 @@ Processed nvProcessMessage(Message * m) {
             sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, GRSP_OK);
             return PROCESSED;
         case OPC_NVSETRD:
-            if (m->len <= 4) {
+            if (m->len < 5) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, CMDERR_INV_CMD);
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
                 return PROCESSED;
@@ -231,4 +241,22 @@ Processed nvProcessMessage(Message * m) {
     }
 }
 
-        
+/**
+ * This is the callback used by the service discovery responses.
+ * @param type always set to TIMED_RESPONSE_NVRD
+ * @param s indicates the service requesting the responses
+ * @param step loops through each service to be discovered
+ * @return whether all of the responses have been sent yet.
+ */
+TimedResponseResult nvTRnvrdCallback(uint8_t type, const Service * s, uint8_t step) {
+    int16_t valueOrError;
+    if (step >= NV_NUM) {
+        return TIMED_RESPONSE_RESULT_FINISHED;
+    }
+    valueOrError = getNV(step);
+    if (valueOrError < 0) {
+        return TIMED_RESPONSE_RESULT_FINISHED;
+    }
+    sendMessage3(OPC_NVANS, nn.bytes.hi, nn.bytes.lo, (uint8_t)(valueOrError));
+    return TIMED_RESPONSE_RESULT_NEXT;
+}

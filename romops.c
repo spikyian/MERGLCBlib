@@ -82,13 +82,9 @@ int16_t read_eeprom(uint16_t index) {
     EECON1bits.RD = 1;			/* EEPROM Read */
     while (EECON1bits.RD)
         ;
-#ifdef __XC8
+
     asm("NOP");                 /* data available after a NOP */
-#else
-    _asm
-        nop
-    _endasm
-#endif
+
     return EEDATA;
 }
 
@@ -109,20 +105,22 @@ uint8_t write_eeprom(uint16_t index, uint8_t value) {
         EECON1bits.EEPGD = 0;       /* Point to DATA memory */
         EECON1bits.CFGS = 0;        /* Access program FLASH/Data EEPROM memory */
         EECON1bits.WREN = 1;        /* Enable writes */
-        di();                       /* Disable Interrupts */
+        /* Disable Interrupts */
+        bothDi();                       
         EECON2 = 0x55;
         EECON2 = 0xAA;
         EECON1bits.WR = 1;
         while (EECON1bits.WR)       // should wait until WR clears
             ;
-        if (interruptEnabled) {     // Only enable interrupts if they were enabled at function entry
-            ei();                   /* Enable Interrupts */
-        }
- //       while (!EEIF)
- //           ;
+        while (!EEIF)
+            ;
         EEIF = 0;
+        if (interruptEnabled) {     // Only enable interrupts if they were enabled at function entry
+            /* Re-enable Interrupts */
+            bothEi();                  
+        }
         EECON1bits.WREN = 0;		/* Disable writes */
-    } while (readNVM(EEPROM_NVM_TYPE, index) != value);
+    } while (read_eeprom(index) != value);
     return GRSP_OK;
 }
 
@@ -161,14 +159,14 @@ void eraseFlashBlock() {
     EECON1bits.CFGS = 0;    // 0=Program memory/EEPROM, 1=ConfigBits
     EECON1bits.WREN = 1;    // enable write to memory
     EECON1bits.FREE = 1;    // enable row erase operation
-    di();     // disable all interrupts
+    bothDi();     // disable all interrupts
     EECON2 = 0x55;          // write 0x55
     EECON2 = 0xaa;          // write 0xaa
     EECON1bits.WR = 1;      // start erasing
     while(EECON1bits.WR)    // wait to finish
         ;
     if (interruptEnabled) {     // Only enable interrupts if they were enabled at function entry
-        ei();                   /* Enable Interrupts */
+        bothEi();                   /* Enable Interrupts */
     }
     EECON1bits.WREN = 0;    // disable write to memory
 }
@@ -180,7 +178,7 @@ void flushFlashBlock() {
     uint8_t interruptEnabled;
     TBLPTR = flashBlock; //force row boundary
     interruptEnabled = geti(); // store current global interrupt state
-    di();     // disable all interrupts ERRATA says this is needed before TBLWT
+    bothDi();     // disable all interrupts ERRATA says this is needed before TBLWT
     for (unsigned char i=0; i<BLOCK_SIZE; i++) {
         TABLAT = flashBuffer[i];
         asm("TBLWT*+");
@@ -201,7 +199,7 @@ void flushFlashBlock() {
     EECON2 = 0xAA;
     EECON1bits.WR = 1;
     if (interruptEnabled) {     // Only enable interrupts if they were enabled at function entry
-        ei();                   /* Enable Interrupts */
+        bothEi();                   /* Enable Interrupts */
     }
     EECON1bits.WREN = 0;
 }

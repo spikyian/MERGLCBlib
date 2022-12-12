@@ -58,6 +58,7 @@ void mnsPoll(void);
 Processed mnsProcessMessage(Message * m);
 void mnsLowIsr(void);
 DiagnosticVal * mnsGetDiagnostic(uint8_t index);
+void setLEDsByMode(void);
 
 /**
  *  The descriptor for the MNS service.
@@ -107,8 +108,7 @@ static LedState    ledState[NUM_LEDS];     // the requested state
 /**
  * Counters to control on/off period.
  */
-static uint8_t flashCounter;     // update every 10ms
-static uint8_t flickerCounter;   // update every 10ms
+static uint8_t flashCounter[NUM_LEDS];     // update every 10ms
 static TickValue ledTimer;
 /**
  * Module's push button handling.
@@ -190,18 +190,18 @@ void mnsPowerUp(void) {
     } else {
         mode = (uint8_t)temp;
     }
+    
+    // Set up the LEDs
     APP_setPortDirections();
-    // Show uninitialised on LEDs
-    flashCounter = 0;
-    flickerCounter = 0;
+#if ((NUM_LEDS == 1) || (NUM_LEDS == 2))
+    flashCounter[0] = 0;
+#endif
+#if NUM_LEDS==2
+    flashCounter[1] = 0;
+#endif
     ledTimer.val = 0;
-#if NUM_LEDS == 2
-    ledState[GREEN_LED] = ON;
-    ledState[YELLOW_LED] = OFF;
-#endif
-#if NUM_LEDS == 1
-    ledState[0] = FLASH_50_HALF_HZ;
-#endif
+    setLEDsByMode();
+
     pbState = 0;
     // Clear the diagnostics
     for (i=0; i< NUM_MNS_DIAGNOSTICS; i++) {
@@ -210,7 +210,6 @@ void mnsPowerUp(void) {
     heartbeatSequence = 0;
     heartbeatTimer.val = 0;
 }
-
 
 /**
  * Minimum Node Specification service MERGCB message processing.
@@ -227,23 +226,21 @@ Processed mnsProcessMessage(Message * m) {
     uint8_t newMode;
 
     // Now do the MNS opcodes
-    // TODO check message->len
+
     // SETUP mode messages
     if (mode == MODE_SETUP) {
         switch (m->opc) {
             case OPC_SNN:   // Set node number
-                nn.bytes.hi = m->bytes[0];
-                nn.bytes.lo = m->bytes[1];
-                sendMessage2(OPC_NNACK, nn.bytes.hi, nn.bytes.lo);
-                mode = MODE_NORMAL;
-#if NUM_LEDS == 2
-                ledState[GREEN_LED] = OFF;
-                ledState[YELLOW_LED] = ON;
-#endif
-#if NUM_LEDS == 1
-                ledState[0] = ON;
-#endif
-                // Update the LEDs
+                if (m->len < 3) {
+                    sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
+                } else {    
+                    nn.bytes.hi = m->bytes[0];
+                    nn.bytes.lo = m->bytes[1];
+                    sendMessage2(OPC_NNACK, nn.bytes.hi, nn.bytes.lo);
+                    mode = MODE_NORMAL;
+                    // Update the LEDs
+                    setLEDsByMode();
+                }
                 return PROCESSED;
             case OPC_RQNP:  // request parameters
                 sendMessage7(OPC_PARAMS, PARAM_MANU, PARAM_MINOR_VERSION, 
@@ -266,7 +263,7 @@ Processed mnsProcessMessage(Message * m) {
                 if (have(SERVICE_ID_BOOT)) {
                     flags |= 16;
                 }
-                sendMessage5(OPC_PNN, 0,0, MANU_MERG, MTYP_MERGLCB, flags);
+                sendMessage5(OPC_PNN, 0,0, PARAM_MANU, PARAM_MODULE_ID, flags);
                 return PROCESSED;
             default:
                 break;
@@ -296,13 +293,19 @@ Processed mnsProcessMessage(Message * m) {
         default:
             break;
     }
-    
+    if (m->len < 3) {
+        return NOT_PROCESSED;
+    }
     // With NN - check it is us
     if (m->bytes[0] != nn.bytes.hi) return NOT_PROCESSED;
     if (m->bytes[1] != nn.bytes.lo) return NOT_PROCESSED;
     // NN message processing
     switch (m->opc) {
         case OPC_RQNPN: // request node parameter
+            if (m->len < 4) {
+                sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
+                return PROCESSED;
+            }
             switch(m->bytes[2]) {
                 case PAR_NUM:       // Number of parameters
                     i=20;
@@ -401,6 +404,10 @@ Processed mnsProcessMessage(Message * m) {
             factoryReset();
             return PROCESSED;
         case OPC_RDGN:  // diagnostics
+            if (m->len < 5) {
+                sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
+                return PROCESSED;
+            }
             if (m->bytes[2] == 0) {
                 // a DGN response for all of the services
                 startTimedResponse(TIMED_RESPONSE_RDGN, SERVICE_ID_ALL, &mnsTRallDiagnosticsCallback);
@@ -428,6 +435,10 @@ Processed mnsProcessMessage(Message * m) {
             }
             return PROCESSED;
         case OPC_RQSD:  // service discovery
+            if (m->len < 4) {
+                sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
+                return PROCESSED;
+            }
             if (m->bytes[2] == 0) {
                 // a SD response for all of the services
                 startTimedResponse(TIMED_RESPONSE_RQSD, SERVICE_ID_MNS, &mnsTRserviceDiscoveryCallback);
@@ -439,6 +450,10 @@ Processed mnsProcessMessage(Message * m) {
             }
             return PROCESSED;
         case OPC_MODE:  // set operating mode
+            if (m->len < 4) {
+                sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
+                return PROCESSED;
+            }
             newMode = m->bytes[2];
             // check current mode
             switch (mode) {
@@ -450,13 +465,7 @@ Processed mnsProcessMessage(Message * m) {
                         //start the request for NN
                         sendMessage2(OPC_RQNN, nn.bytes.hi, nn.bytes.lo);
                         // Update the LEDs
-#if NUM_LEDS == 2
-                        ledState[GREEN_LED] = OFF;
-                        ledState[YELLOW_LED] = FLASH_50_1HZ;
-#endif
-#if NUM_LEDS == 1
-                        ledState[0] = FLASH_50_1HZ;
-#endif
+                        setLEDsByMode();
                     }
                     break;
                 case MODE_SETUP:
@@ -473,13 +482,7 @@ Processed mnsProcessMessage(Message * m) {
                         setupModePreviousMode = MODE_NORMAL;
                         pbTimer.val = tickGet();
                         // Update the LEDs
-#if NUM_LEDS == 2
-                        ledState[GREEN_LED] = OFF;
-                        ledState[YELLOW_LED] = FLASH_50_1HZ;
-#endif
-#if NUM_LEDS == 1
-                        ledState[0] = FLASH_50_1HZ;
-#endif
+                        setLEDsByMode();
                     } else if (newMode != MODE_UNINITIALISED) {
                         // change between other modes
                         // No special handling - JFDI
@@ -491,6 +494,14 @@ Processed mnsProcessMessage(Message * m) {
             return PROCESSED;
         case OPC_SQU:   // squelch
             // TODO     Handle Squelch
+            if (m->len < 4) {
+                sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
+                return PROCESSED;
+            }
+            if (m->bytes[2] >100) {
+                sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_PARAM_IDX);
+                return PROCESSED;
+            }
             return PROCESSED;
         case OPC_NNRST: // reset CPU
             RESET();
@@ -515,83 +526,91 @@ void mnsPoll(void) {
             heartbeatTimer.val = tickGet();
         }
     }
-    // update the LEDs
+    // update the actual LEDs based upon their state
     if (tickTimeSince(ledTimer) > TEN_MILI_SECOND) {
-        flashCounter++;
-        flickerCounter++;
+#if ((NUM_LEDS == 1) || (NUM_LEDS == 2))
+        flashCounter[0]++;
+#endif
+#if NUM_LEDS==2
+        flashCounter[1]++;
+#endif
         ledTimer.val = tickGet();
         
     }
 #if NUM_LEDS == 2
-    switch (ledState[GREEN_LED]) {
+    switch (ledState[YELLOW_LED]) {
         case ON:
             APP_writeLED2(1);
+            flashCounter[1] = 0;
             break;
         case OFF:
             APP_writeLED2(0);
+            flashCounter[1] = 0;
             break;
         case FLASH_50_1HZ:
-            // 1Hz (500ms per cycle is a count of 50 
-            APP_writeLED2(flashCounter/50); 
-            if (flashCounter >= 100) {
-                flashCounter = 0;
+            // 1Hz (500ms per on or off is a count of 50 
+            APP_writeLED2(flashCounter[1]/50); 
+            if (flashCounter[1] >= 100) {
+                flashCounter[1] = 0;
             }
             break;
         case FLASH_50_HALF_HZ:
-            APP_writeLED2(flashCounter/100);
-            if (flashCounter >= 200) {
-                flashCounter = 0;
+            APP_writeLED2(flashCounter[1]/100);
+            if (flashCounter[1] >= 200) {
+                flashCounter[1] = 0;
             }
             break;
         case SINGLE_FLICKER_ON:
             APP_writeLED2(1);
-            if (flickerCounter >= 20) {     // 100ms
-                flickerCounter = 0;
-                ledState[GREEN_LED] = OFF;
+            if (flashCounter[1] >= 20) {     // 100ms
+                flashCounter[1] = 0;
+                setLEDsByMode();
             }
             break;
         case SINGLE_FLICKER_OFF:
             APP_writeLED2(0);
-            if (flickerCounter >= 20) {     // 100ms
-                flickerCounter = 0;
-                ledState[GREEN_LED] = ON;
+            if (flashCounter[1] >= 20) {     // 100ms
+                flashCounter[1] = 0;
+                setLEDsByMode();
             }
             break;
     }
 #endif
 #if ((NUM_LEDS == 1) || (NUM_LEDS == 2))
-    switch (ledState[YELLOW_LED]) {
+    switch (ledState[GREEN_LED]) {
         case ON:
             APP_writeLED1(1);
+            flashCounter[0] = 0;
             break;
         case OFF:
             APP_writeLED1(0);
+            flashCounter[0] = 0;
             break;
         case FLASH_50_1HZ:
             // 1Hz (500ms per cycle is a count of 50 
-            APP_writeLED1(flashCounter/50); 
-            if (flashCounter >= 100) {
-                flashCounter = 0;
+            APP_writeLED1(flashCounter[0]/50); 
+            if (flashCounter[0] >= 100) {
+                flashCounter[0] = 0;
             }
             break;
         case FLASH_50_HALF_HZ:
-            APP_writeLED1(flashCounter/100);
-            if (flashCounter >= 200) {
-                flashCounter = 0;
+            APP_writeLED1(flashCounter[0]/100);
+            if (flashCounter[0] >= 200) {
+                flashCounter[0] = 0;
             }
             break;
         case SINGLE_FLICKER_ON:
             APP_writeLED1(1);
-            if (flickerCounter >= 20) {     // 100ms
-                flickerCounter = 0;
-                ledState[YELLOW_LED] = OFF;
+            if (flashCounter[0] >= 20) {     // 100ms
+                flashCounter[0] = 0;
+                setLEDsByMode();
             }
             break;
         case SINGLE_FLICKER_OFF:
             APP_writeLED1(0);
-            if (flickerCounter >= 20) {     // 100ms
-                flickerCounter = 0;
-                ledState[YELLOW_LED] = ON;
+            if (flashCounter[0] >= 20) {     // 100ms
+                flashCounter[0] = 0;
+                setLEDsByMode();
             }
             break;
     }
@@ -611,14 +630,6 @@ void mnsPoll(void) {
                     pbTimer.val = tickGet();
                     //start the request for NN
                     sendMessage2(OPC_RQNN, nn.bytes.hi, nn.bytes.lo);
-                    // Update the LEDs
-#if NUM_LEDS == 2
-                    ledState[GREEN_LED] = OFF;
-                    ledState[YELLOW_LED] = FLASH_50_1HZ;
-#endif
-#if NUM_LEDS == 1
-                    ledState[0] = FLASH_50_1HZ;
-#endif
                 }
             }
             break;
@@ -642,25 +653,19 @@ void mnsPoll(void) {
             } else {
                 if (tickTimeSince(pbTimer) > 8*ONE_SECOND) {
                     // Do State transition from Normal to Setup
-                    // release the NN
-                    sendMessage2(OPC_NNREL, nn.bytes.hi, nn.bytes.lo);
                     previousNN.word = nn.word;  // save the old NN
                     nn.bytes.lo = nn.bytes.hi = 0;
                     //return to setup
                     mode = MODE_SETUP;
                     setupModePreviousMode = MODE_NORMAL;
                     pbTimer.val = tickGet();
-                    // Update the LEDs
-#if NUM_LEDS == 2
-                    ledState[GREEN_LED] = OFF;
-                    ledState[YELLOW_LED] = FLASH_50_1HZ;
-#endif
-#if NUM_LEDS == 1
-                    ledState[0] = FLASH_50_1HZ;
-#endif
+                    //start the request for NN
+                    sendMessage2(OPC_RQNN, previousNN.bytes.hi, previousNN.bytes.lo);
                 }
             } 
     }
+    // Update the LEDs
+    setLEDsByMode();
 }
 
 /**
@@ -692,6 +697,41 @@ DiagnosticVal * mnsGetDiagnostic(uint8_t index) {
         return NULL;
     }
     return &(mnsDiagnostics[index-1]);
+}
+
+/**
+ * Set the LEDs according to the current mode.
+ */
+void setLEDsByMode(void) {
+       switch (mode) {
+        case MODE_UNINITIALISED:
+ #if NUM_LEDS == 2
+            ledState[GREEN_LED] = ON;
+            ledState[YELLOW_LED] = OFF;
+#endif
+#if NUM_LEDS == 1
+            ledState[0] = FLASH_50_HALF_HZ;
+#endif
+            break;
+        case MODE_SETUP:
+#if NUM_LEDS == 2
+            ledState[GREEN_LED] = OFF;
+            ledState[YELLOW_LED] = FLASH_50_1HZ;
+#endif
+#if NUM_LEDS == 1
+            ledState[0] = FLASH_50_1HZ;
+#endif
+            break;
+        default:
+#if NUM_LEDS == 2
+            ledState[GREEN_LED] = OFF;
+            ledState[YELLOW_LED] = ON;
+#endif
+#if NUM_LEDS == 1
+            ledState[0] = ON;
+#endif
+            break;
+    }
 }
 
 /**

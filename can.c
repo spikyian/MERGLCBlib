@@ -32,6 +32,8 @@
   Ian Hogg Nov 2022
  */
 
+// TODO fix the transmit queue
+
 /*
  * Implementation of the MERGLCB CAN service. Uses Controller Area Network to
  * carry MERGLCB messages.
@@ -100,16 +102,15 @@ static uint8_t canId;
  */
 static DiagnosticVal canDiagnostics[NUM_CAN_DIAGNOSTICS];
 
-uint8_t  larbRetryCount;
 TickValue  canTransmitTimeout;
 uint8_t  canTransmitFailed;
 
 /**
  *  Tx and Rx buffers
  */
-static Message rxBuffers[NUM_RXBUFFERS];
+static Message rxBuffers[CAN_NUM_RXBUFFERS];
 static Queue rxQueue;
-static Message txBuffers[NUM_TXBUFFERS];
+static Message txBuffers[CAN_NUM_TXBUFFERS];
 static Queue txQueue;
 static Message message;
 
@@ -129,8 +130,18 @@ CanidResult setNewCanId(uint8_t newCanId);
 static uint8_t * getBufferPointer(uint8_t b);
 void canInterruptHandler(void);
 void processEnumeration(void);
-MessageReceived handleIncomingPacket(uint8_t * p);
+MessageReceived handleSelfEnumeration(uint8_t * p);
 void canFillRxFifo(void);
+
+// CAN priorities
+static const uint8_t canPri[] = {
+    0b01110000, // pLOW
+    0b01100000, // pNORMAL
+    0b01010000, // pABOVE
+    0b01000000, // pHIGH
+    0b00000000  // pSUPER
+};
+#define pSUPER  4   // Not message priority so supply here
 
 // message priority
 static const Priority priorities[256] = {
@@ -408,12 +419,12 @@ void canPowerUp(void) {
     rxQueue.readIndex = 0;
     rxQueue.writeIndex = 0;
     rxQueue.messages = rxBuffers;
-    rxQueue.size = NUM_RXBUFFERS;
+    rxQueue.size = CAN_NUM_RXBUFFERS;
     // initialise the TX buffers
     txQueue.readIndex = 0;
     txQueue.writeIndex = 0;
     txQueue.messages = txBuffers;
-    txQueue.size = NUM_TXBUFFERS;
+    txQueue.size = CAN_NUM_TXBUFFERS;
     
     // initialise the CAN peripheral
     
@@ -522,14 +533,9 @@ void canPowerUp(void) {
     TXB0CONbits.TXPRI0 = 0;                           // Set buffer priority, so will be sent after any self enumeration packets
     TXB0CONbits.TXPRI1 = 0;
     TXB0DLC = 0;                                      // Not RTR, payload length will be set by transmit routine
-    // TODO change the way TXB0 SIDL and SIDH are set
-    //pHIGH   = 0b10000000000,
-    //pABOVE  = 0b10010000000,
-    //pNORMAL = 0b10100000000,
-    //pLOW    = 0b10110000000
     
-    TXB0SIDH = 0b10110000 | ((canId & 0x78) >> 3);     // Set CAN priority and ms 4 bits of can id
-    TXB0SIDL = (uint8_t)((canId & 0x07) << 5);         // LS 3 bits of can id and extended id to zero
+    TXB0SIDH = 0;     // The CANID and priority will be set properly when actually sending a frame.
+    TXB0SIDL = 0;     
 
     // Preload TXB1 with RTR frame to initiate self enumeration when required
 
@@ -537,7 +543,7 @@ void canPowerUp(void) {
     TXB1CONbits.TXPRI0 = 0;                           // Set buffer priority, so will be sent before any CBUS data packets but after any enumeration replies
     TXB1CONbits.TXPRI1 = 1;
     TXB1DLC = 0x40;                                   // RTR packet with zero payload
-    TXB1SIDH = 0b10110000 | ((canId & 0x78) >> 3);     // Set CAN priority and ms 4 bits of can id
+    TXB1SIDH = canPri[pSUPER] | ((canId & 0x78) >> 3);    // Set CAN priority and ms 4 bits of can id
     TXB1SIDL = TXB0SIDL;                              // LS 3 bits of can id and extended id to zero
 
     // Preload TXB2 with a zero length packet containing CANID for  use in self enumeration
@@ -546,7 +552,7 @@ void canPowerUp(void) {
     TXB2CONbits.TXPRI0 = 1;                           // Set high buffer priority, so will be sent before any CBUS packets
     TXB2CONbits.TXPRI1 = 1;
     TXB2DLC = 0;                                      // Not RTR, zero payload
-    TXB2SIDH = 0b10110000 | ((canId & 0x78) >> 3);     // Set CAN priority and ms 8 bits of can id
+    TXB2SIDH = canPri[pSUPER] | ((canId & 0x78) >> 3);    // Set CAN priority and ms 8 bits of can id
     TXB2SIDL = TXB0SIDL;                   // LS 3 bits of can id and extended id to zero
 
     // Initialise enumeration control variables
@@ -558,6 +564,7 @@ void canPowerUp(void) {
     canTransmitTimeout.val = enumerationStartTime.val;
 
     FIFOWMIE = 1;    // Enable Fifo 1 space left interrupt
+    TXBnIE = 1;      // Enable the TX buffer transmission complete interrupt
     ERRIE = 1;       // Enable error interrupts
 }
 
@@ -570,13 +577,21 @@ void canPowerUp(void) {
  */
 Processed canProcessMessage(Message * m) {
     // check NN matches us
+    if (m->len < 3) return NOT_PROCESSED;
     if (m->bytes[0] != nn.bytes.hi) return NOT_PROCESSED;
     if (m->bytes[1] != nn.bytes.lo) return NOT_PROCESSED;
     
     // Handle any CAN specific OPCs
     switch (m->opc) {
         case OPC_ENUM:
+            // ignore request
+            return PROCESSED;
         case OPC_CANID:
+            if (m->len < 4) {
+                sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
+                return PROCESSED;
+            }
+            // ignore request
             return PROCESSED;
         default:
             break;
@@ -622,9 +637,9 @@ SendResult canSendMessage(Message * mp) {
             // ECAN transmit buffer is free so nothing waiting
             // write to ECAN
             if (mp->len >8) mp->len = 8;
-            // TXB0 is the message transmit buffer
-            //TXB0SIDL = 0;       // TODO fill in SIDL
-            //TXB0SIDH = 0;       // TODO fill in SIDH
+            // TXB0 is the normal message transmit buffer
+            TXB0SIDL = 0;       // will get set properly when we have a message to send
+            TXB0SIDH = 0;       
             TXB0D0 = mp->opc;
             TXB0D1 = mp->bytes[0];
             TXB0D2 = mp->bytes[1];
@@ -668,30 +683,35 @@ MessageReceived canReceiveMessage(Message * m){
     } else { // Nothing in software FIFO, so now check for message in hardware FIFO
         if (COMSTATbits.NOT_FIFOEMPTY) {
             p = getBufferPointer(CANCON & 0x07);
+            if (p == NULL) {
+                // how to handle this error should never happen
+                FIFOWMIE = 1; // Re-enable FIFO interrupts now out of critical section
+                return NOT_RECEIVED;
+            }
             RXBnIF = 0;
-            if (handleIncomingPacket(p)) {
-                // It is a message that will need to be processed so put in RX queue
-                mp = getNextWriteMessage(&rxQueue);
-                if (mp != NULL) {
+            if (handleSelfEnumeration(p) == RECEIVED) {
+                // It is a message that will need to be processed so return it
+                //mp = getNextWriteMessage(&rxQueue);
+                //if (mp != NULL) {
                     // copy the ECAN buffer to the Message
-                    mp->opc = p[D0];
-                    mp->len = p[DLC] & 0xF;
-                    if  (mp->len > 8) {
-                        mp->len = 8; // Limit buffer size to 8 bytes (defensive coding - it should not be possible for it to ever be more than 8, but just in case
+                    m->opc = p[D0];
+                    m->len = p[DLC] & 0xF;
+                    if  (m->len > 8) {
+                        m->len = 8; // Limit buffer size to 8 bytes (defensive coding - it should not be possible for it to ever be more than 8, but just in case
                     }
-                    mp->bytes[0] = p[D1];
-                    mp->bytes[1] = p[D2];
-                    mp->bytes[2] = p[D3];
-                    mp->bytes[3] = p[D4];
-                    mp->bytes[4] = p[D5];
-                    mp->bytes[5] = p[D6];
-                    mp->bytes[6] = p[D7];
+                    m->bytes[0] = p[D1];
+                    m->bytes[1] = p[D2];
+                    m->bytes[2] = p[D3];
+                    m->bytes[3] = p[D4];
+                    m->bytes[4] = p[D5];
+                    m->bytes[5] = p[D6];
+                    m->bytes[6] = p[D7];
                     messageAvailable = RECEIVED;
-                } else {
+                //} else {
                     // no space in RX Queue
-                    messageAvailable = NOT_RECEIVED;
-                    canDiagnostics[CAN_DIAG_RX_BUFFER_OVERRUN].asUint++;
-                }
+                //    messageAvailable = NOT_RECEIVED;
+                //    canDiagnostics[CAN_DIAG_RX_BUFFER_OVERRUN].asUint++;
+                //}
             }
             // Record and Clear any previous invalid message bit flag.
             if (IRXIF) {
@@ -712,35 +732,26 @@ MessageReceived canReceiveMessage(Message * m){
 // Set pointer to correct receive register set for incoming packet
 
 static uint8_t * getBufferPointer(uint8_t b) {
-    uint8_t* buffPtr;
-
     switch (b) {
         case 0:
-            buffPtr = (uint8_t*) & RXB0CON;
-            break;
+            return (uint8_t*) & RXB0CON;
         case 1:
-            buffPtr = (uint8_t*) & RXB1CON;
-            break;
+            return (uint8_t*) & RXB1CON;
         case 2:
-            buffPtr = (uint8_t*) & B0CON;
-            break;
+            return (uint8_t*) & B0CON;
         case 3:
-            buffPtr = (uint8_t*) & B1CON;
-            break;
+            return (uint8_t*) & B1CON;
         case 4:
-            buffPtr = (uint8_t*) & B2CON;
-            break;
+            return (uint8_t*) & B2CON;
         case 5:
-            buffPtr = (uint8_t*) & B3CON;
-            break;
+            return (uint8_t*) & B3CON;
         case 6:
-            buffPtr = (uint8_t*) & B4CON;
-            break;
+            return (uint8_t*) & B4CON;
+        case 7:
+            return (uint8_t*) & B5CON;
         default:
-            buffPtr = (uint8_t*) & B5CON;
-            break;
+            return NULL;
     }
-    return (buffPtr);
 }
 
 /**
@@ -753,9 +764,9 @@ void checkTxFifo( void ) {
     if (!TXB0CONbits.TXREQ) {
         mp = pop(&txQueue);
         if (mp != NULL) {  // If data waiting in software fifo, and buffer ready
-            // TXB0 is the message transmit buffer
-            //TXB0SIDL = 0;       // TODO fill in SIDL using message priority
-            //TXB0SIDH = 0;       // TODO fill in SIDH using message priority
+            // TXB0 is the normal message transmit buffer
+            TXB0SIDH = canPri[priorities[mp->opc]] | ((canId & 0x78) >> 3);
+            TXB0SIDL = (uint8_t)((canId & 0x07) << 5);            
             TXB0D0 = mp->opc;
             TXB0D1 = mp->bytes[0];
             TXB0D2 = mp->bytes[1];
@@ -766,7 +777,6 @@ void checkTxFifo( void ) {
             TXB0D7 = mp->bytes[6];
             TXB0DLC = mp->len;
 
-            larbRetryCount = LARB_RETRIES;
             canTransmitTimeout.val = tickGet();
             canTransmitFailed = 0;
             TXB0CONbits.TXREQ = 1;    // Initiate transmission
@@ -805,18 +815,10 @@ void checkCANTimeout(void) {
  */
 void canTxError(void) {
     if (TXB0CONbits.TXLARB) {  // lost arbitration
-        if (larbRetryCount == 0) {	// already tried higher priority
-            canTransmitFailed = 1;
-            canTransmitTimeout.val = 0;
-
-            TXB0CONbits.TXREQ = 0;
-            canDiagnostics[CAN_DIAG_LOST_ARRBITARTAION].asUint++;
-        }
-        else if ( --larbRetryCount == 0) {	// Allow tries at lower level priority first
-            TXB0CONbits.TXREQ = 0;
-            TXB0SIDH &= 0b00111111; 		// change to high priority  ?? check priority bits usage
-            TXB0CONbits.TXREQ = 1;			// try again
-        }
+        canTransmitFailed = 1;
+        canTransmitTimeout.val = 0;
+        TXB0CONbits.TXREQ = 0;
+        canDiagnostics[CAN_DIAG_LOST_ARRBITARTAION].asUint++;
     }
     if (TXB0CONbits.TXERR) {	// bus error
         canTransmitFailed = 1;
@@ -849,7 +851,12 @@ void canInterruptHandler(void) {
     checkCANTimeout();
 }
 
-MessageReceived handleIncomingPacket(uint8_t * p) {
+/**
+ * Start or respond to self-enumeration process.
+ * @param p
+ * @return 
+ */
+MessageReceived handleSelfEnumeration(uint8_t * p) {
     uint8_t incomingCanId;
 
     canDiagnostics[CAN_DIAG_RX_MESSAGES].asUint++;
@@ -892,7 +899,7 @@ void canFillRxFifo(void) {
             RXBnOVFL = 0;
         }
 
-        if (handleIncomingPacket(ptr)) {
+        if (handleSelfEnumeration(ptr) == RECEIVED) {
             // copy message into the rx Queue
             m = getNextWriteMessage(&rxQueue);
             if (m == NULL) {
@@ -981,10 +988,7 @@ void processEnumeration(void) {
 CanidResult setNewCanId(uint8_t newCanId) {
     if ((newCanId >= 1) && (newCanId <= 99)) {
         canId = newCanId;
-        // TODO change the way that TXB0 SIDH and SIDL are set
-        TXB0SIDH &= 0b11110000;                // Clear canid bits
-        TXB0SIDH |= ((newCanId & 0x78) >>3);  // Set new can id for CUBS packet transmissions
-        TXB0SIDL = (uint8_t)((newCanId & 0x07) << 5);
+        // Update SIDH and SIDL for CANID in TXB1 and TXB2
 
         TXB1SIDH &= 0b11110000;                // Clear canid bits
         TXB1SIDH |= ((newCanId & 0x78) >>3);  // Set new can id for self enumeration frame transmission

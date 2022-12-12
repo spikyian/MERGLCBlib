@@ -38,7 +38,9 @@
 /**
  *  How to determine whether interrupts are enabled
  */
-#define geti()  (INTCONbits.GIE)
+#define geti()  (INTCONbits.GIEH)
+#define bothEi()    {INTCONbits.GIEH = 1; INTCONbits.GIEL = 1;}
+#define bothDi()    {INTCONbits.GIEH = 0; INTCONbits.GIEL = 0;}
 #endif
 
 #endif

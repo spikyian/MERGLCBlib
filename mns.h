@@ -52,15 +52,14 @@ extern const Service mnsService;
  */
 extern DiagnosticVal * mnsGetDiagnostic(uint8_t index);
 /* The list of the diagnostics supported */
-#define NUM_MNS_DIAGNOSTICS 7
+#define NUM_MNS_DIAGNOSTICS 6
 #define MNS_DIAGNOSTICS_ALL         0x00    // return a series of DGN messages for each services? supported data.
 #define MNS_DIAGNOSTICS_STATUS      0x01    // return Global status Byte.
 #define MNS_DIAGNOSTICS_UPTIMEH     0x02    // return uptime upper word.
 #define MNS_DIAGNOSTICS_UPTIMEL     0x03    // return uptime lower word.
 #define MNS_DIAGNOSTICS_MEMSTAT     0x04    // return memory status.
 #define MNS_DIAGNOSTICS_NNCHANGE    0x05    // return number of Node Number changes.
-#define MNS_DIAGNOSTICS_ERRSTAT     0x06    // return soft error status.
-#define MNS_DIAGNOSTICS_RXMESS      0x07    // return number of received messages acted upon.
+#define MNS_DIAGNOSTICS_RXMESS      0x06    // return number of received messages acted upon.
 
 /**
  * The module's node number.
@@ -84,7 +83,7 @@ typedef enum {
 } LedState;
 
 // LED identifiers
-#define YELLOW_LED  0
-#define GREEN_LED   1
+#define GREEN_LED   0
+#define YELLOW_LED  1
 
 #endif

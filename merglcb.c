@@ -317,14 +317,16 @@ void poll(void) {
     if (transport != NULL) {
         if (transport->receiveMessage != NULL) {
             if (transport->receiveMessage(&m)) {
-                handled = APP_preProcessMessage(&m); // Call App to check for any opcodes to be handled. 
-                if (handled == 0) {
-                    for (i=0; i< NUM_SERVICES; i++) {
-                        if ((services[i] != NULL) && (services[i]->processMessage != NULL)) {
-                            if (services[i]->processMessage(&m)) {
-                                handled = 1;
-                                break;
-                            };
+                if (m.len > 0) {
+                    handled = APP_preProcessMessage(&m); // Call App to check for any opcodes to be handled. 
+                    if (handled == 0) {
+                        for (i=0; i< NUM_SERVICES; i++) {
+                            if ((services[i] != NULL) && (services[i]->processMessage != NULL)) {
+                                if (services[i]->processMessage(&m)) {
+                                    handled = 1;
+                                    break;
+                                }
+                            }
                         }
                     }
                 }

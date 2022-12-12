@@ -87,7 +87,6 @@
 // 
 // Error codes for OPC_CMDERR
 // 
-// TODO convert CMDERR error codes to enum
 #define CMDERR_INV_CMD          1	// 
 #define CMDERR_NOT_LRN          2	// 
 #define CMDERR_NOT_SETUP        3	// 
@@ -175,10 +174,10 @@
  * Message priorities
  */
 typedef enum Priority {
-    pHIGH,
-    pABOVE,
-    pNORMAL,
-    pLOW
+    pLOW=0,
+    pNORMAL=1,
+    pABOVE=2,
+    pHIGH=3,
 } Priority;
 
 
@@ -418,7 +417,7 @@ void sendMessage(Opcode opc, uint8_t len, uint8_t data1, uint8_t data2, uint8_t 
  * any data and the length of the message.
  */
 typedef struct Message {
-    uint8_t len;        // message length
+    uint8_t len;        // message total length including opc
     Opcode opc;        // The opcode
     uint8_t bytes[7];   // any data bytes
 } Message;
@@ -428,8 +427,8 @@ typedef struct Message {
  */
 typedef union Word {
     struct {
-        uint8_t hi;
         uint8_t lo;
+        uint8_t hi;
     } bytes;
     uint16_t word;
 } Word;
@@ -447,8 +446,8 @@ typedef union DiagnosticVal {
     uint16_t    asUint;
     int16_t     asInt;
     struct {
-        uint8_t hi;
         uint8_t lo;
+        uint8_t hi;
     } asBytes;
 } DiagnosticVal;
 
