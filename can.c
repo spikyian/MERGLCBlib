@@ -32,8 +32,6 @@
   Ian Hogg Nov 2022
  */
 
-// TODO fix the transmit queue
-
 /*
  * Implementation of the MERGLCB CAN service. Uses Controller Area Network to
  * carry MERGLCB messages.
@@ -118,7 +116,6 @@ static Message message;
  * Variables for self enumeration of CANID 
  */
 TickValue  enumerationStartTime;
-uint8_t    enumerationRequired;
 uint8_t    enumerationRequired;     // whether to send enumeration result message
 uint8_t    enumerationInProgress;
 uint8_t    enumerationResults[ENUM_ARRAY_SIZE];
@@ -631,6 +628,7 @@ DiagnosticVal * canGetDiagnostic(uint8_t index) {
  * @return SEND_OK if a message was sent, SEND_FAIL if buffer was full
  */
 SendResult canSendMessage(Message * mp) {
+    // TODO self enum if invalid canid
     // first check to see if there are messages waiting in the TX queue
     if (quantity(&txQueue) == 0) {
         if (TXB0CONbits.TXREQ == 0) {
@@ -638,8 +636,8 @@ SendResult canSendMessage(Message * mp) {
             // write to ECAN
             if (mp->len >8) mp->len = 8;
             // TXB0 is the normal message transmit buffer
-            TXB0SIDL = 0;       // will get set properly when we have a message to send
-            TXB0SIDH = 0;       
+            TXB0SIDH = canPri[priorities[mp->opc]] | ((canId & 0x78) >> 3);
+            TXB0SIDL = (uint8_t)((canId & 0x07) << 5);        
             TXB0D0 = mp->opc;
             TXB0D1 = mp->bytes[0];
             TXB0D2 = mp->bytes[1];
@@ -657,6 +655,8 @@ SendResult canSendMessage(Message * mp) {
     }
     // Add to Queue
     if (push(&txQueue, mp) == QUEUE_FAIL) {
+        canDiagnostics[CAN_DIAG_TX_BUFFER_OVERRUN].asUint++;
+        if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
         return SEND_FAILED;
     }
     return SEND_OK;
@@ -707,11 +707,6 @@ MessageReceived canReceiveMessage(Message * m){
                     m->bytes[5] = p[D6];
                     m->bytes[6] = p[D7];
                     messageAvailable = RECEIVED;
-                //} else {
-                    // no space in RX Queue
-                //    messageAvailable = NOT_RECEIVED;
-                //    canDiagnostics[CAN_DIAG_RX_BUFFER_OVERRUN].asUint++;
-                //}
             }
             // Record and Clear any previous invalid message bit flag.
             if (IRXIF) {
@@ -805,6 +800,7 @@ void checkCANTimeout(void) {
             TXB0CONbits.TXREQ = 0;  // abort timed out packet
             checkTxFifo();          //  See if another packet is waiting to be sent
             canDiagnostics[CAN_DIAG_TX_ERRORS].asUint++;
+            if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
         }
     }
 }
@@ -819,12 +815,14 @@ void canTxError(void) {
         canTransmitTimeout.val = 0;
         TXB0CONbits.TXREQ = 0;
         canDiagnostics[CAN_DIAG_LOST_ARRBITARTAION].asUint++;
+        if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
     }
     if (TXB0CONbits.TXERR) {	// bus error
         canTransmitFailed = 1;
         canTransmitTimeout.val = 0;
         TXB0CONbits.TXREQ = 0;
         canDiagnostics[CAN_DIAG_TX_ERRORS].asUint++;
+        if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
     }
     if (canTransmitFailed) {
         checkTxFifo();  // Check to see if more to try and send
@@ -904,6 +902,7 @@ void canFillRxFifo(void) {
             m = getNextWriteMessage(&rxQueue);
             if (m == NULL) {
                 canDiagnostics[CAN_DIAG_RX_BUFFER_OVERRUN].asUint++;
+                if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
                 // Record and Clear any previous invalid message bit flag.
                 if (IRXIF) {
                     IRXIF = 0;
@@ -968,9 +967,13 @@ void processEnumeration(void) {
                     /* if (resultRequired) {
                         cbusSendOpcMyNN( 0, OPC_NNACK, cbusMsg );   // this will get sent for all successful self enums but maybe only required for the ENUM command
                     } */
+                } else {
+                    canDiagnostics[CAN_DIAG_CANID_ENUMS_FAIL].asUint++;
+                    if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
                 }
             } else {
                 canDiagnostics[CAN_DIAG_CANID_ENUMS_FAIL].asUint++;
+                if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
                 /* if (resultRequired) {
                     doError(CMDERR_INVALID_EVENT);  // seems a strange error code but that's what the spec says...
                 } */

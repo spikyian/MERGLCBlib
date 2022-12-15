@@ -51,13 +51,15 @@ extern const Service mnsService;
  * @return 
  */
 extern DiagnosticVal * mnsGetDiagnostic(uint8_t index);
+extern DiagnosticVal mnsDiagnostics[];
+
 /* The list of the diagnostics supported */
 #define NUM_MNS_DIAGNOSTICS 6
 #define MNS_DIAGNOSTICS_ALL         0x00    // return a series of DGN messages for each services? supported data.
 #define MNS_DIAGNOSTICS_STATUS      0x01    // return Global status Byte.
 #define MNS_DIAGNOSTICS_UPTIMEH     0x02    // return uptime upper word.
 #define MNS_DIAGNOSTICS_UPTIMEL     0x03    // return uptime lower word.
-#define MNS_DIAGNOSTICS_MEMSTAT     0x04    // return memory status.
+#define MNS_DIAGNOSTICS_MEMERRS     0x04    // return memory status.
 #define MNS_DIAGNOSTICS_NNCHANGE    0x05    // return number of Node Number changes.
 #define MNS_DIAGNOSTICS_RXMESS      0x06    // return number of received messages acted upon.
 

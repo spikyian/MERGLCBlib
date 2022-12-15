@@ -81,7 +81,7 @@ extern void initTimedResponse(void);
  * passed then the callback is repeatedly for each service.
  * @param callback the user specific callback function
  */
-extern void startTimedResponse(uint8_t type, uint8_t serviceId, TimedResponseCallback callback);
+extern void startTimedResponse(uint8_t type, uint8_t serviceId, TimedResponseResult (*callback)(uint8_t type, const Service * s, uint8_t step));
 
 /**
  * Call regularly to call the user's callback function. Handles the call back 

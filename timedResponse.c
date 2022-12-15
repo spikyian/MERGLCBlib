@@ -65,7 +65,7 @@ static uint8_t timedResponseServiceIndex;
 static uint8_t timedResponseAllServicesFlag;
 static uint8_t timedResponseType;
 static uint8_t timedResponseStep;
-static TimedResponseCallback timedResponseCallback;
+static TimedResponseResult (*timedResponseCallback)(uint8_t type, const Service * s, uint8_t step);
 
 
 /**
@@ -83,10 +83,11 @@ void initTimedResponse(void) {
  * passed then the callback is repeatedly for each service.
  * @param callback the user specific callback function
  */
-void startTimedResponse(uint8_t type, uint8_t serviceId, TimedResponseCallback callback) {
+void startTimedResponse(uint8_t type, uint8_t serviceId, TimedResponseResult (*callback)(uint8_t type, const Service * s, uint8_t step)) {
     int16_t si;
     timedResponseType = type;
     if (serviceId == SERVICE_ID_ALL) {
+        // go through all the services
         timedResponseAllServicesFlag = 1;
         timedResponseServiceIndex = 0;
     } else {
@@ -108,7 +109,10 @@ void startTimedResponse(uint8_t type, uint8_t serviceId, TimedResponseCallback c
  * function's results to increment the step value and cycle through the services.
  */
 void pollTimedResponse() {
+    TimedResponseResult result;
+    
     if (timedResponseType == TIMED_RESPONSE_NONE) {
+        // no timed responses in progross
         return;
     }
     if (timedResponseCallback == NULL) {
@@ -118,7 +122,8 @@ void pollTimedResponse() {
     }
 
     // Now call the callback function
-    switch (timedResponseCallback(timedResponseType, services[timedResponseServiceIndex], timedResponseStep)) {
+    result = (*timedResponseCallback)(timedResponseType, services[timedResponseServiceIndex], timedResponseStep);
+    switch (result) {
         case TIMED_RESPONSE_RESULT_FINISHED:
             // the callback tells us it has finished but lets check if there are other
             // services still to do
@@ -128,11 +133,11 @@ void pollTimedResponse() {
                 if (timedResponseServiceIndex >= NUM_SERVICES) {
                     // finished all the services
                     timedResponseType = TIMED_RESPONSE_NONE;
+                } else {
                     timedResponseStep = 0;
                 }
             } else {
                 timedResponseType = TIMED_RESPONSE_NONE;
-                timedResponseStep = 0;
             }
             break;
         case TIMED_RESPONSE_RESULT_RETRY:

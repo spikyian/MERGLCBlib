@@ -106,6 +106,7 @@
 #define GRSP_OK                 0
 #define GRSP_UNKNOWN_NVM_TYPE   254
 #define GRSP_INVALID_DIAGNOSTIC 253
+#define GRSP_INVALID_SERVICE    252
 
 //
 // Modes
@@ -117,6 +118,7 @@
 #define MODE_EVENT_ACK  4
 #define MODE_BOOT       5
 #define MODE_BOOT2      6
+#define MODE_NOHEARTB   7
 
 // 
 // Processor manufacturer codes

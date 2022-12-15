@@ -45,6 +45,7 @@
 #include "merglcb.h"
 #include "hardware.h"
 #include "romops.h"
+#include "mns.h"
 
 #ifdef _PIC18
 #define BLOCK_SIZE _FLASH_ERASE_SIZE
@@ -120,7 +121,14 @@ uint8_t write_eeprom(uint16_t index, uint8_t value) {
             bothEi();                  
         }
         EECON1bits.WREN = 0;		/* Disable writes */
-    } while (read_eeprom(index) != value);
+        if (read_eeprom(index) == value) {
+            // it is ok
+            break;
+        }
+        mnsDiagnostics[MNS_DIAGNOSTICS_MEMERRS].asUint++;
+        if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
+    } while (1);
+    
     return GRSP_OK;
 }
 

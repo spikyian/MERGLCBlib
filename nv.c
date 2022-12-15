@@ -198,7 +198,7 @@ Processed nvProcessMessage(Message * m) {
             sendMessage4(OPC_NVANS, nn.bytes.hi, nn.bytes.lo, m->bytes[2], (uint8_t)(valueOrError));
             if (m->bytes[2] == 0) {
                 // a NVANS response for all of the NVs
-                startTimedResponse(TIMED_RESPONSE_NVRD, SERVICE_ID_NV, &nvTRnvrdCallback);
+                startTimedResponse(TIMED_RESPONSE_NVRD, SERVICE_ID_NV, nvTRnvrdCallback);
             }
             return PROCESSED;
         case OPC_NVSET:
@@ -257,6 +257,6 @@ TimedResponseResult nvTRnvrdCallback(uint8_t type, const Service * s, uint8_t st
     if (valueOrError < 0) {
         return TIMED_RESPONSE_RESULT_FINISHED;
     }
-    sendMessage3(OPC_NVANS, nn.bytes.hi, nn.bytes.lo, (uint8_t)(valueOrError));
+    sendMessage4(OPC_NVANS, nn.bytes.hi, nn.bytes.lo, step, (uint8_t)(valueOrError));
     return TIMED_RESPONSE_RESULT_NEXT;
 }

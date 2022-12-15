@@ -119,11 +119,14 @@ static TickValue pbTimer;
 /**
  * The diagnostic values supported by the MNS service.
  */
-static DiagnosticVal mnsDiagnostics[NUM_MNS_DIAGNOSTICS];
+DiagnosticVal mnsDiagnostics[NUM_MNS_DIAGNOSTICS];
 
 /* Heartbeat controls */
 static uint8_t heartbeatSequence;
 TickValue heartbeatTimer;
+
+/* Heartbeat controls */
+TickValue uptimeTimer;
 
 /**
  * Forward declaration for the TimedResponse callback function for sending
@@ -151,14 +154,13 @@ TimedResponseResult mnsTRallDiagnosticsCallback(uint8_t type, const Service * s,
  * Perform the MNS factory reset. Just set the node number and mode to default.
  */
 void mnsFactoryReset(void) {
-    uint8_t i;
-    nn.bytes.hi = 0;
-    nn.bytes.lo = 0;
-    writeNVM(NN_NVM_TYPE, NN_ADDRESS, 0);
-    writeNVM(NN_NVM_TYPE, NN_ADDRESS+1, 0);
+    nn.bytes.hi = NN_HI_DEFAULT;
+    nn.bytes.lo = NN_LO_DEFAULT;
+    writeNVM(NN_NVM_TYPE, NN_ADDRESS, nn.bytes.hi);
+    writeNVM(NN_NVM_TYPE, NN_ADDRESS+1, nn.bytes.lo);
     
     mode = MODE_UNINITIALISED;
-    mode = writeNVM(MODE_NVM_TYPE, MODE_ADDRESS, mode);
+    writeNVM(MODE_NVM_TYPE, MODE_ADDRESS, mode);
 }
 
 /**
@@ -209,6 +211,7 @@ void mnsPowerUp(void) {
     }
     heartbeatSequence = 0;
     heartbeatTimer.val = 0;
+    uptimeTimer.val = 0;
 }
 
 /**
@@ -236,8 +239,14 @@ Processed mnsProcessMessage(Message * m) {
                 } else {    
                     nn.bytes.hi = m->bytes[0];
                     nn.bytes.lo = m->bytes[1];
-                    sendMessage2(OPC_NNACK, nn.bytes.hi, nn.bytes.lo);
+                    writeNVM(NN_NVM_TYPE, NN_ADDRESS, nn.bytes.hi);
+                    writeNVM(NN_NVM_TYPE, NN_ADDRESS+1, nn.bytes.lo);
+                    
                     mode = MODE_NORMAL;
+                    writeNVM(MODE_NVM_TYPE, MODE_ADDRESS, mode);
+                    
+                    sendMessage2(OPC_NNACK, nn.bytes.hi, nn.bytes.lo);
+                    mnsDiagnostics[MNS_DIAGNOSTICS_NNCHANGE].asUint++;
                     // Update the LEDs
                     setLEDsByMode();
                 }
@@ -410,25 +419,27 @@ Processed mnsProcessMessage(Message * m) {
             }
             if (m->bytes[2] == 0) {
                 // a DGN response for all of the services
-                startTimedResponse(TIMED_RESPONSE_RDGN, SERVICE_ID_ALL, &mnsTRallDiagnosticsCallback);
+                startTimedResponse(TIMED_RESPONSE_RDGN, SERVICE_ID_ALL, mnsTRallDiagnosticsCallback);
             } else {
                 s = findService(m->bytes[2]);
-                // an ESD for the particular service
-                // TODO What additional data for ESD?
+                if (s == NULL) {
+                    sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_RDGN, 1, GRSP_INVALID_SERVICE);
+                    return PROCESSED;
+                }
                 if (m->bytes[3] == 0) {
                     // a DGN for all diagnostics for a particular service
-                    startTimedResponse(TIMED_RESPONSE_RDGN, s->serviceNo, &mnsTRallDiagnosticsCallback);
+                    startTimedResponse(TIMED_RESPONSE_RDGN, s->serviceNo, mnsTRallDiagnosticsCallback);
                 }
                 if (s->getDiagnostic == NULL) {
                     // the service doesn't support diagnostics
-                    sendMessage3(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, GRSP_INVALID_DIAGNOSTIC);
+                    sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_RDGN, 1, GRSP_INVALID_DIAGNOSTIC);
                 } else {
                     DiagnosticVal * d = s->getDiagnostic(m->bytes[3]);
                     if (d == NULL) {
                         // the requested diagnostic doesn't exist
-                        sendMessage3(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, GRSP_INVALID_DIAGNOSTIC);
+                        sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_RDGN, 1, GRSP_INVALID_DIAGNOSTIC);
                     } else {
-                        // it was a request for a single diagnost from a single service
+                        // it was a request for a single diagnostic from a single service
                         sendMessage6(OPC_DGN, nn.bytes.hi, nn.bytes.lo, s->serviceNo, m->bytes[3],d->asBytes.hi, d->asBytes.lo);
                     }
                 }
@@ -441,7 +452,7 @@ Processed mnsProcessMessage(Message * m) {
             }
             if (m->bytes[2] == 0) {
                 // a SD response for all of the services
-                startTimedResponse(TIMED_RESPONSE_RQSD, SERVICE_ID_MNS, &mnsTRserviceDiscoveryCallback);
+                startTimedResponse(TIMED_RESPONSE_RQSD, SERVICE_ID_MNS, mnsTRserviceDiscoveryCallback);
             } else {
                 s = findService(m->bytes[2]);
                 // an ESD for the particular service
@@ -474,7 +485,7 @@ Processed mnsProcessMessage(Message * m) {
                     if (newMode == MODE_SETUP) {
                         // Do State transition from Normal to Setup
                         // release the NN
-                        sendMessage2(OPC_NNREL, nn.bytes.hi, nn.bytes.lo);
+                        sendMessage2(OPC_RQNN, nn.bytes.hi, nn.bytes.lo);
                         previousNN.word = nn.word;  // save the old NN
                         nn.bytes.lo = nn.bytes.hi = 0;
                         //return to setup
@@ -487,8 +498,8 @@ Processed mnsProcessMessage(Message * m) {
                         // change between other modes
                         // No special handling - JFDI
                         mode = newMode;
+                        writeNVM(MODE_NVM_TYPE, MODE_ADDRESS, mode);
                     }
-                    // TODO NOHEARTB mode
                     break;
             }
             return PROCESSED;
@@ -518,14 +529,26 @@ Processed mnsProcessMessage(Message * m) {
  */
 void mnsPoll(void) {
     // Heartbeat message
-    if (mode == MODE_NORMAL) {
+    if ((mode != MODE_SETUP) && (mode != MODE_UNINITIALISED) && (mode != MODE_NOHEARTB)) {
         // don't send in NOHEARTB mode - or any others
         if (tickTimeSince(heartbeatTimer) > 5*ONE_SECOND) {
-            // TODO output the actual status
-            sendMessage5(OPC_HEARTB, nn.bytes.hi,nn.bytes.lo,heartbeatSequence++,0,0);
+            if (mode != MODE_NOHEARTB) {
+                sendMessage5(OPC_HEARTB, nn.bytes.hi,nn.bytes.lo,heartbeatSequence++,mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo,0);
+            }
             heartbeatTimer.val = tickGet();
+            if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo > 0) {
+                mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo--;
+            }
         }
     }
+    if (tickTimeSince(uptimeTimer) > ONE_SECOND) {
+        uptimeTimer.val = tickGet();
+        mnsDiagnostics[MNS_DIAGNOSTICS_UPTIMEL].asUint++;
+        if (mnsDiagnostics[MNS_DIAGNOSTICS_UPTIMEL].asUint == 0) {
+            mnsDiagnostics[MNS_DIAGNOSTICS_UPTIMEH].asUint++;
+        }
+    }
+    
     // update the actual LEDs based upon their state
     if (tickTimeSince(ledTimer) > TEN_MILI_SECOND) {
 #if ((NUM_LEDS == 1) || (NUM_LEDS == 2))
@@ -638,10 +661,12 @@ void mnsPoll(void) {
             if (tickTimeSince(pbTimer) > 3*TEN_SECOND) {
                 // return to previous mode
                 mode = setupModePreviousMode;
+                writeNVM(MODE_NVM_TYPE, MODE_ADDRESS, mode);
                 // restore the NN
                 if (mode == MODE_NORMAL) {
                     nn.word = previousNN.word;
                     sendMessage2(OPC_NNACK, nn.bytes.hi, nn.bytes.lo);
+                    mnsDiagnostics[MNS_DIAGNOSTICS_NNCHANGE].asUint++;
                 }
             }
             break;
@@ -762,13 +787,12 @@ TimedResponseResult mnsTRallDiagnosticsCallback(uint8_t type, const Service * s,
     if (s->getDiagnostic == NULL) {
         return TIMED_RESPONSE_RESULT_FINISHED;
     }
-    DiagnosticVal * d = s->getDiagnostic(step);
+    DiagnosticVal * d = s->getDiagnostic(step+1);   // steps start at 0 whereas diagnostics start at 1
     if (d == NULL) {
         // the requested diagnostic doesn't exist
         return TIMED_RESPONSE_RESULT_FINISHED;
-    } else {
-        // it was a request for a single diagnostic from a single service
-        sendMessage6(OPC_DGN, nn.bytes.hi, nn.bytes.lo, s->serviceNo, step,d->asBytes.hi, d->asBytes.lo);
     }
+    // it was a request for a single diagnostic from a single service
+    sendMessage6(OPC_DGN, nn.bytes.hi, nn.bytes.lo, s->serviceNo, step+1, d->asBytes.hi, d->asBytes.lo);
     return TIMED_RESPONSE_RESULT_NEXT;
 }
