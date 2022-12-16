@@ -254,7 +254,7 @@ ServicePresent have(uint8_t id) {
 void factoryReset(void) {
     uint8_t i;
  
-    for (i=0; i< NUM_SERVICES; i++) {
+    for (i=0; i<NUM_SERVICES; i++) {
         if ((services[i] != NULL) && (services[i]->factoryReset != NULL)) {
             services[i]->factoryReset();
         }
@@ -278,7 +278,7 @@ void powerUp(void) {
     initTicker(0);
     initTimedResponse();
     
-    for (i=0; i< NUM_SERVICES; i++) {
+    for (i=0; i<NUM_SERVICES; i++) {
         if ((services[i] != NULL) && (services[i]->powerUp != NULL)) {
             services[i]->powerUp();
         }
@@ -306,7 +306,7 @@ void poll(void) {
         timedResponseTime.val = tickGet();
     }
     /* call any service polls */
-    for (i=0; i< NUM_SERVICES; i++) {
+    for (i=0; i<NUM_SERVICES; i++) {
         if ((services[i] != NULL) && (services[i]->poll != NULL)) {
             services[i]->poll();
         }
@@ -320,7 +320,7 @@ void poll(void) {
                 if (m.len > 0) {
                     handled = APP_preProcessMessage(&m); // Call App to check for any opcodes to be handled. 
                     if (handled == 0) {
-                        for (i=0; i< NUM_SERVICES; i++) {
+                        for (i=0; i<NUM_SERVICES; i++) {
                             if ((services[i] != NULL) && (services[i]->processMessage != NULL)) {
                                 if (services[i]->processMessage(&m)) {
                                     handled = 1;
@@ -350,7 +350,7 @@ void poll(void) {
 void highIsr(void) {
     uint8_t i;
     
-    for (i=0; i< NUM_SERVICES; i++) {
+    for (i=0; i<NUM_SERVICES; i++) {
         if ((services[i] != NULL) && (services[i]->highIsr != NULL)) {
             services[i]->highIsr();
         }
@@ -369,7 +369,7 @@ void highIsr(void) {
 void lowIsr(void) {
     uint8_t i;
     
-    for (i=0; i< NUM_SERVICES; i++) {
+    for (i=0; i<NUM_SERVICES; i++) {
         if ((services[i] != NULL) && (services[i]->lowIsr != NULL)) {
             services[i]->lowIsr();
         }

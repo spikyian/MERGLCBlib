@@ -414,7 +414,7 @@ Processed mnsProcessMessage(Message * m) {
             return PROCESSED;
         case OPC_RDGN:  // diagnostics
             if (m->len < 5) {
-                sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
+                sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_RDGN, SERVICE_ID_MNS, CMDERR_INV_CMD);
                 return PROCESSED;
             }
             if (m->bytes[2] == 0) {

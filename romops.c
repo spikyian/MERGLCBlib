@@ -66,6 +66,13 @@ static uint24_t    flashBlock;     //address of current 64 byte flash block
 #define BLOCK(A)    (A&(uint24_t)(~(BLOCK_SIZE-1)))
 #define OFFSET(A)   (A&(BLOCK_SIZE-1))
 
+
+/**
+ * Call back into the application to check if now is a good time to write the flash
+ * as the processor will be suspended for up to 2ms.
+ */
+extern ValidTime APP_isSuitableTimeToWriteFlash(void);
+
 /**
  * Read EEPROM.  
  * @param index the address
@@ -155,7 +162,7 @@ int16_t read_flash(uint24_t index) {
  * May block awaiting for the application to indicate that it is a suitable time
  * to allow the CPU to be halted.
  */
-void eraseFlashBlock() {
+void eraseFlashBlock(void) {
     uint8_t interruptEnabled;
     // Call back into the application to check if now is a good time to write the flash
     // as the processor will be suspended for up to 2ms.
@@ -182,9 +189,11 @@ void eraseFlashBlock() {
  * Flush the current flash buffer out to flash.
  * Will suspend the CPU.
  */
-void flushFlashBlock() {
+void flushFlashBlock(void) {
     uint8_t interruptEnabled;
     TBLPTR = flashBlock; //force row boundary
+    if (! flashFlags.writeNeeded) return;
+    
     interruptEnabled = geti(); // store current global interrupt state
     bothDi();     // disable all interrupts ERRATA says this is needed before TBLWT
     for (unsigned char i=0; i<BLOCK_SIZE; i++) {
@@ -210,12 +219,13 @@ void flushFlashBlock() {
         bothEi();                   /* Enable Interrupts */
     }
     EECON1bits.WREN = 0;
+    flashFlags.writeNeeded = 0;
 }
 
 /**
  * Load an entire block of flash into the flash buffer.
  */
-void loadFlashBlock() {
+void loadFlashBlock(void) {
     EECON1=0X80;    // access to flash
         TBLPTR = flashBlock;
         for (unsigned char i=0; i<64; i++) {
@@ -267,10 +277,8 @@ uint8_t write_flash(uint24_t index, uint8_t value) {
             flashFlags.eraseNeeded = 0;
         }
         
-        if (flashFlags.writeNeeded) {
-            flushFlashBlock();
-            flashFlags.writeNeeded = 0;
-        }
+        flushFlashBlock();
+        
         // and load the new one
         flashBlock = BLOCK(index);
         loadFlashBlock();
