@@ -1,3 +1,4 @@
+#ifndef _UTIL_H_
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -31,26 +32,14 @@
 
   Ian Hogg Dec 2022
  */
+#define _UTIL_H_
 
 #include <xc.h>
 #include "merglcb.h"
-#include "event_consumer.h"
-#include "event_teach.h"
-/*
- * Event Consumer service
- */
 
-static Processed consumerProcessMessage(Message * m);
-// service definition
-const Service eventConsumerService = {
-    SERVICE_ID_CONSUMER,// id
-    1,                  // version
-    NULL,               // factoryReset
-    NULL,               // powerUp
-    NULL,               // processMessage
-    NULL,               // poll
-    NULL,               // highIsr
-    NULL,               // lowIsr
-    NULL                // getDiagnostic
-};
+extern Processed checkLen(Message * m, uint8_t needed);
 
+
+
+
+#endif

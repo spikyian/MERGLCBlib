@@ -32,8 +32,11 @@
 
   Ian Hogg Dec 2022
  */
+#include "module.h"
 #define _EVENT_PRODUCER_H_
 
 extern const Service eventProducerService;
+
+extern void sendProducedEvent(Happening h, uint8_t state); 
 
 #endif

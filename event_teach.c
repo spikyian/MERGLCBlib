@@ -29,6 +29,23 @@
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
 
+ */
+
+/*
+ *  History for this file:
+	28/12/15	Pete Brownlow	- Factored out from FLiM module
+    25/2/16     Pete Brownlow   - coding in progress
+    23/5/17     Ian Hogg        - added support for produced events
+    05/06/21    Ian Hogg        - removed happenings and actions so that this file just handles EV bytes
+ *  14/12/22    Ian Hogg        - Ported to be a MERGLCB service and XC8 compiler
+ * 
+ * 
+ * Currently written for:
+ *  XC8 compiler
+ * 
+ * This file used the following PIC peripherals:
+ *  * none
+ * 
   Ian Hogg Dec 2022
  */
 #include <xc.h>
@@ -56,8 +73,8 @@
  * If set to 256 then the for (uint8_t i=0; i<NUM_EVENTS; i++) loops will never end
  * as they use an uint8_t instead of int for space/performance reasons.
  *
- * BEWARE Concurrency: The functions which use the EVENT_TABLE_NVM_TYPE, EVENT_TABLE_ADDRESS + EVENTTABLE_ROW_WIDTH*i+EVENTTABLE_OFFSET_ and hash/lookup must not be used
- * whilst there is a chance of the functions which modify the EVENT_TABLE_NVM_TYPE, EVENT_TABLE_ADDRESS + EVENTTABLE_ROW_WIDTH*i+EVENTTABLE_OFFSET_ of RAM based 
+ * BEWARE Concurrency: The functions which use the eventtable and hash/lookup must not be used
+ * whilst there is a chance of the functions which modify the eventtable of RAM based 
  * hash/lookup tables being called. These functions should therefore either be called
  * from the same thread or disable interrupts. 
  *
@@ -69,9 +86,9 @@
  * 
  * Events are stored in the EventTable which consists of rows containing the following 
  * fields:
- * * EventTableFlags flags         1 byte
+ * * EventTableFlags flags            1 byte
  * * uint8_t next                     1 byte
- * * Event event                   4 bytes
+ * * Event event                      4 bytes
  * * uint8_t evs[EVENT_TABLE_WIDTH]   EVENT_TABLE_WIDTH bytes
  * 
  * The number of table entries is defined by NUM_EVENTS.
@@ -91,9 +108,9 @@
  * 
  * The EventTableFlags have the following entries:
  * eVsUsed                4 bits
- * continued                       1 bit
- * forceOwnNN                      1 bit
- * freeEntry                       1 bit
+ * continued              1 bit
+ * forceOwnNN             1 bit
+ * freeEntry              1 bit
  * 
  * The 'continued' flag indicates if there is another table entry chained to this 
  * one. If the flag is set then the 'next' field contains the index of the chained 
@@ -166,8 +183,8 @@
  * EventTable it is firstly hashed using getHash(nn,en), trimmed to HASH_LENGTH 
  * and this is used as the first index into eventChains[][]. We then step through 
  * the second index of buckets within the chain. Each entry is an index into the 
- * EVENT_TABLE_NVM_TYPE, EVENT_TABLE_ADDRESS + EVENTTABLE_ROW_WIDTH*i+EVENTTABLE_OFFSET_ and the EVENT_TABLE_NVM_TYPE, EVENT_TABLE_ADDRESS + EVENTTABLE_ROW_WIDTH*i+EVENTTABLE_OFFSET_'s event field is checked to see if it matches the
- * received event. It it does match then the index into EVENT_TABLE_NVM_TYPE, EVENT_TABLE_ADDRESS + EVENTTABLE_ROW_WIDTH*i+EVENTTABLE_OFFSET_ has been found 
+ * eventtable and the eventtable's event field is checked to see if it matches the
+ * received event. It it does match then the index into eventtable has been found 
  * and is returned. The EVs can then be accessed from the ev[] field.
  * 
  * If PRODUCED_EVENTS is defined in addition to HASH_TABLE then an additional 
@@ -191,7 +208,7 @@ uint8_t validStart(uint8_t tableIndex);
 uint16_t getNN(uint8_t tableIndex);
 uint16_t getEN(uint8_t tableIndex);
 uint8_t numEv(uint8_t tableIndex);
-int getEv(uint8_t tableIndex, uint8_t evNum);
+int16_t getEv(uint8_t tableIndex, uint8_t evNum);
 uint8_t tableIndexToEvtIdx(uint8_t tableIndex);
 uint8_t findEvent(uint16_t nodeNumber, uint16_t eventNumber);
 uint8_t removeTableEntry(uint8_t tableIndex);
@@ -365,24 +382,6 @@ static Processed teachProcessMessage(Message* m) {
             return PROCESSED;
         default:
             break;
-    }
-    return NOT_PROCESSED;
-}
-
-/**
- * Checks that the required number of message bytes are present.
- * @param m
- * @param needed
- * @return 
- */
-Processed checkLen(Message * m, uint8_t needed) {
-    if (m->len < needed) {
-        if (m->len > 2) {
-            if ((m->bytes[0] == nn.bytes.hi) && (m->bytes[1] == nn.bytes.lo)) {
-                sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, CMDERR_INV_CMD);
-            }
-        }
-        return PROCESSED;
     }
     return NOT_PROCESSED;
 }
@@ -865,7 +864,7 @@ uint8_t writeEv(uint8_t tableIndex, uint8_t evNum, uint8_t evVal) {
  * @param evNum ev number starts at 0 (produced)
  * @return the ev value or -error code if error
  */
-int getEv(uint8_t tableIndex, uint8_t evNum) {
+int16_t getEv(uint8_t tableIndex, uint8_t evNum) {
     EventTableFlags f;
     if ( ! validStart(tableIndex)) {
         // not a valid start

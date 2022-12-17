@@ -115,10 +115,10 @@ static Message message;
 /**
  * Variables for self enumeration of CANID 
  */
-TickValue  enumerationStartTime;
-uint8_t    enumerationRequired;     // whether to send enumeration result message
-uint8_t    enumerationInProgress;
-uint8_t    enumerationResults[ENUM_ARRAY_SIZE];
+static TickValue  enumerationStartTime;
+static uint8_t    enumerationRequired;     // whether to send enumeration result message
+static uint8_t    enumerationInProgress;
+static uint8_t    enumerationResults[ENUM_ARRAY_SIZE];
 #define arraySetBit( array, index ) ( array[index>>3] |= ( 1<<(index & 0x07) ) )
 
 // forward declarations
@@ -650,10 +650,13 @@ SendResult canSendMessage(Message * mp) {
 
             TXB0CONbits.TXREQ = 1;    // Initiate transmission
             canDiagnostics[CAN_DIAG_TX_MESSAGES].asUint++;
+            // If this is an event we are sending then put it onto the rx queue so
+            // we can consume our own events.
+            // TODO CoE
             return SEND_OK;
         }
     }
-    // Add to Queue
+    // Add to transmit Queue
     if (push(&txQueue, mp) == QUEUE_FAIL) {
         canDiagnostics[CAN_DIAG_TX_BUFFER_OVERRUN].asUint++;
         if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
@@ -776,6 +779,9 @@ void checkTxFifo( void ) {
             canTransmitFailed = 0;
             TXB0CONbits.TXREQ = 1;    // Initiate transmission
             TXBnIE = 1;  // enable transmit buffer interrupt
+            // If this is an event we are sending then put it onto the rx queue so
+            // we can consume our own events.
+            // TODO CoE
         } else {
             // nothing to send
             canTransmitTimeout.val = 0;

@@ -35,19 +35,72 @@
 #include <xc.h>
 #include "merglcb.h"
 #include "event_acknowledge.h"
+#include "event_teach.h"
+#include "mns.h"
 
 /*
  * Event acknowledge service
  */
+static Processed ackEventProcessMessage(Message * m);
 // service definition
 const Service eventAckService = {
     SERVICE_ID_EVENTACK,// id
     1,                  // version
     NULL,               // factoryReset
     NULL,               // powerUp
-    NULL,                // processMessage
+    ackEventProcessMessage,                // processMessage
     NULL,               // poll
     NULL,               // highIsr
     NULL,               // lowIsr
     NULL                // getDiagnostic
 };
+
+/**
+ *  This only provides the functionality for event acknowledge.
+ */
+static Processed ackEventProcessMessage(Message * m) {
+    Word eventNN, eventEN;
+    uint8_t eventIndex;
+    int16_t ev;
+    
+    // Check that the Event Ack mode is set
+    if (mode != MODE_EVENT_ACK) {
+        return NOT_PROCESSED;
+    }
+    // check that we have event consumption service
+    if (findService(SERVICE_ID_CONSUMER) == NULL) {
+        return NOT_PROCESSED;
+    }
+    if (m->len < 5) {
+        return NOT_PROCESSED;
+    }
+    eventNN.bytes.hi = m->bytes[0];
+    eventNN.bytes.lo = m->bytes[1];
+    eventEN.bytes.hi = m->bytes[2];
+    eventEN.bytes.lo = m->bytes[3];
+    
+    switch (m->opc) {
+        case OPC_ACON:
+        case OPC_ACOF:
+            // Long event
+            eventIndex = findEvent(eventNN.word, eventNN.word);
+            break;
+        case OPC_ASON:
+        case OPC_ASOF:
+            // Short event
+            eventIndex = findEvent(0, eventNN.word);
+            break;
+        default:
+            return NOT_PROCESSED;
+    }
+    if (eventIndex != NO_INDEX) {
+        // we have the event in the event table
+        // check that we have a consumed Action
+        ev = getEv(eventIndex, 1);
+        if (ev >= 0) {
+            // sent the ack
+            sendMessage7(OPC_ENACK, nn.bytes.hi, nn.bytes.lo, m->opc, m->bytes[0], m->bytes[1], m->bytes[2], m->bytes[3]);
+        }
+    }
+    return NOT_PROCESSED;
+}

@@ -1,3 +1,4 @@
+#ifndef _ARDUINO_H_
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -31,26 +32,29 @@
 
   Ian Hogg Dec 2022
  */
+#define _ARDUINO_H_
 
 #include <xc.h>
 #include "merglcb.h"
-#include "event_consumer.h"
-#include "event_teach.h"
-/*
- * Event Consumer service
- */
 
-static Processed consumerProcessMessage(Message * m);
-// service definition
-const Service eventConsumerService = {
-    SERVICE_ID_CONSUMER,// id
-    1,                  // version
-    NULL,               // factoryReset
-    NULL,               // powerUp
-    NULL,               // processMessage
-    NULL,               // poll
-    NULL,               // highIsr
-    NULL,               // lowIsr
-    NULL                // getDiagnostic
-};
+ // General purpose pin usage
+typedef struct {
+    uint8_t pin;
+    char port;
+    uint8_t no;
+    uint8_t an;
+} Config;
 
+extern const Config configs[];
+
+typedef enum PinMode {
+    OUTPUT = 0,
+    INPUT = 1,
+    ANALOGUE = 2
+} PinMode;
+
+extern void pinMode(uint8_t pin, PinMode mode);
+extern uint8_t digitalRead(uint8_t pin);
+extern void digitalWrite(uint8_t pin, uint8_t value);
+
+#endif

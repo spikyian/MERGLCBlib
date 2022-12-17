@@ -36,8 +36,11 @@
  * Event producer service
  */
 #include <xc.h>
+#include "module.h"
 #include "merglcb.h"
+#include "event_teach.h"
 #include "event_producer.h"
+#include "mns.h"
 /*
  * Event Producer service
  */
@@ -53,3 +56,57 @@ const Service eventProducerService = {
     NULL,               // lowIsr
     NULL                // getDiagnostic
 };
+
+
+
+/**
+ * Get the Produced Event to transmit for the specified action.
+ * If the same produced action has been provisioned for more than 1 event
+ * only the first provisioned event will be returned.
+ * 
+ * @param action the produced action
+ * @return TRUE if the produced event is found
+ */ 
+void sendProducedEvent(Happening happening, uint8_t onOff) {
+    Word producedEventNN;
+    Word producedEventEN;
+#ifndef HASH_TABLE
+    uint8_t tableIndex;
+#endif
+
+#ifdef HASH_TABLE
+    if (happening2Event[happening-HAPPENING_BASE] == NO_INDEX) return FALSE;
+    producedEvent.NN = getNN(happening2Event[happening-HAPPENING_BASE]);
+    producedEvent.EN = getEN(happening2Event[happening-HAPPENING_BASE]);
+    return TRUE;
+#else
+    for (tableIndex=0; tableIndex < NUM_EVENTS; tableIndex++) {
+        if (validStart(tableIndex)) {
+            int16_t ev = getEv(tableIndex, 0);
+            if (ev < 0) continue;
+            if (ev == happening) {
+                producedEventNN.word = getNN(tableIndex);
+                producedEventEN.word = getEN(tableIndex);
+
+                if (producedEventNN.word == 0) {
+                    // Short event
+                    if (onOff) {
+                        sendMessage4(OPC_ASON, nn.bytes.hi, nn.bytes.lo, producedEventEN.bytes.hi, producedEventEN.bytes.lo);
+                    } else {
+                        sendMessage4(OPC_ASOF, nn.bytes.hi, nn.bytes.lo, producedEventEN.bytes.hi, producedEventEN.bytes.lo);
+                    }
+                } else {
+                    // Long event
+                    if (onOff) {
+                        sendMessage4(OPC_ACON, producedEventNN.bytes.hi, producedEventNN.bytes.lo, producedEventEN.bytes.hi, producedEventEN.bytes.lo);
+                    } else {
+                        sendMessage4(OPC_ACOF, producedEventNN.bytes.hi, producedEventNN.bytes.lo, producedEventEN.bytes.hi, producedEventEN.bytes.lo);
+                    }
+                } 
+                return;
+            }
+        }
+    }
+#endif
+}
+

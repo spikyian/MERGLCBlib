@@ -4,53 +4,60 @@
    To view a copy of this license, visit:
       http://creativecommons.org/licenses/by-nc-sa/4.0/
    or send a letter to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
-
    License summary:
     You are free to:
       Share, copy and redistribute the material in any medium or format
       Adapt, remix, transform, and build upon the material
-
     The licensor cannot revoke these freedoms as long as you follow the license terms.
-
     Attribution : You must give appropriate credit, provide a link to the license,
                    and indicate if changes were made. You may do so in any reasonable manner,
                    but not in any way that suggests the licensor endorses you or your use.
-
     NonCommercial : You may not use the material for commercial purposes. **(see note below)
-
     ShareAlike : If you remix, transform, or build upon the material, you must distribute
                   your contributions under the same license as the original.
-
     No additional restrictions : You may not apply legal terms or technological measures that
                                   legally restrict others from doing anything the license permits.
-
    ** For commercial use, please contact the original copyright holder(s) to agree licensing terms
-
-    This software is distributed in the hope that it will be useful, but WITHOUT ANY
-    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
-
-  Ian Hogg Dec 2022
- */
+**************************************************************************************************************
+	
+ Ian Hogg Dec 2022
+	
+*/ 
 
 #include <xc.h>
 #include "merglcb.h"
-#include "event_consumer.h"
-#include "event_teach.h"
-/*
- * Event Consumer service
+#include "module.h"
+#include "mns.h"
+
+#include "util.h"
+
+/* 
+ * File:   util.c
+ * Author: Ian
+ *
+ * Created on 8 December 2022
+ * 
+ * A collection of useful utility functions
+ * 
  */
 
-static Processed consumerProcessMessage(Message * m);
-// service definition
-const Service eventConsumerService = {
-    SERVICE_ID_CONSUMER,// id
-    1,                  // version
-    NULL,               // factoryReset
-    NULL,               // powerUp
-    NULL,               // processMessage
-    NULL,               // poll
-    NULL,               // highIsr
-    NULL,               // lowIsr
-    NULL                // getDiagnostic
-};
+
+
+/**
+ * Checks that the required number of message bytes are present.
+ * @param m
+ * @param needed
+ * @return 
+ */
+Processed checkLen(Message * m, uint8_t needed) {
+    if (m->len < needed) {
+        if (m->len > 2) {
+            if ((m->bytes[0] == nn.bytes.hi) && (m->bytes[1] == nn.bytes.lo)) {
+                sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, CMDERR_INV_CMD);
+            }
+        }
+        return PROCESSED;
+    }
+    return NOT_PROCESSED;
+}
 

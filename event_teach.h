@@ -74,6 +74,13 @@ extern const Service eventTeachService;
  */
 extern uint8_t APP_addEvent(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum, uint8_t evVal);
 
+extern uint8_t validStart(uint8_t index);
+extern int16_t getEv(uint8_t tableIndex, uint8_t evIndex);
+extern uint16_t getNN(uint8_t tableIndex);
+extern uint16_t getEN(uint8_t tableIndex);
+extern uint8_t findEvent(uint16_t nodeNumber, uint16_t eventNumber);
+
+
 // A helper structure to store the details of an event.
 typedef struct {
     uint16_t NN;
