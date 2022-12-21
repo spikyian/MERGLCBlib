@@ -45,9 +45,9 @@
 
 /**
  * Checks that the required number of message bytes are present.
- * @param m
- * @param needed
- * @return 
+ * @param m the message to be checked
+ * @param needed the number of bytes within the message needed
+ * @return PROCESSED if it is an invalid message and should not be processed further
  */
 Processed checkLen(Message * m, uint8_t needed) {
     if (m->len < needed) {

@@ -37,6 +37,13 @@
 
 extern const Service eventProducerService;
 
-extern void sendProducedEvent(Happening h, uint8_t state); 
+#ifdef EVENT_HASH_TABLE
+extern uint8_t happening2Event[MAX_HAPPENING+1];
+#endif
+
+#define NUM_PRODUCER_DIAGNOSTICS    1
+#define PRODUCER_DIAG_NUMPRODUCED   0
+
+extern Boolean sendProducedEvent(Happening h, EventState state); 
 
 #endif

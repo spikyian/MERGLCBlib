@@ -34,6 +34,7 @@
 
 /*
  * Implementation of the MERGLCB NV service.
+ * The service definition object is called nvService.
  *
  * The NV service implements the MERGLCB Node Variable Service. This supports 
  * the NVSET, NVRD and NVSETRD opcodes.
@@ -53,9 +54,10 @@
 
 // forward declarations
 static void loadNVcahe(void);
-void nvFactoryReset(void);
-void nvPowerUp(void);
-Processed nvProcessMessage(Message *m);
+static void nvFactoryReset(void);
+static void nvPowerUp(void);
+static Processed nvProcessMessage(Message *m);
+static uint8_t nvGetESDdata(uint8_t id);
 TimedResponseResult nvTRnvrdCallback(uint8_t type, const Service * s, uint8_t step);
 
 #define TIMED_RESPONSE_NVRD OPC_NVRD
@@ -70,6 +72,7 @@ const Service nvService = {
     NULL,               // poll
     NULL,               // highIsr
     NULL,               // lowIsr
+    nvGetESDdata,       // get ESD data
     NULL                // getDiagnostic
 };
 
@@ -87,7 +90,7 @@ extern void APP_nvValueChanged(uint8_t index, uint8_t value, uint8_t oldValue);
  * The factoryReset for the NV service. Requests the application for defaults
  * for each NV and write those values to the non-volatile memory (NVM) store.
  */
-void nvFactoryReset(void) {
+static void nvFactoryReset(void) {
     uint8_t i;
     for (i=1; i<= NV_NUM; i++) {
         writeNVM(NV_NVM_TYPE, NV_ADDRESS+i, APP_nvDefault(i));
@@ -97,7 +100,7 @@ void nvFactoryReset(void) {
 /**
  * Upon power up read the NV values from NVM and fill the NV cache.
  */
-void nvPowerUp(void) {
+static void nvPowerUp(void) {
 #ifdef NV_CACHE
     loadNVcahe();
 #endif
@@ -172,7 +175,7 @@ uint8_t setNV(uint8_t index, uint8_t value) {
  * @param m the MERGLCB message
  * @return PROCESSED if the message was processed, NOT_PROCESSED otherwise
  */
-Processed nvProcessMessage(Message * m) {
+static Processed nvProcessMessage(Message * m) {
     int16_t valueOrError;
     
     if (m->len < 3) {
@@ -238,6 +241,19 @@ Processed nvProcessMessage(Message * m) {
             return PROCESSED;
         default:
             return NOT_PROCESSED;   // message not processed
+    }
+}
+
+/**
+ * Obtain the ESD data response bytes. Only Data1 containing the number of NVs
+ * is used.
+ * @param id the data index
+ * @return the data value
+ */
+static uint8_t nvGetESDdata(uint8_t id) {
+    switch (id) {
+        case 1: return NV_NUM;
+        default: return 0;
     }
 }
 

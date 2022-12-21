@@ -185,6 +185,7 @@ void eraseFlashBlock(void) {
     }
     EECON1bits.WREN = 0;    // disable write to memory
 }
+
 /**
  * Flush the current flash buffer out to flash.
  * Will suspend the CPU.

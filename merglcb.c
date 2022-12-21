@@ -36,46 +36,50 @@
 #include "merglcb.h"
 #include "module.h"
 // TODO merge with main.c
-/** Module.h has module/application specific definitions which influence the
- * behaviour of MERGLCB.
+/** The developer of an application must provide a module.h which has 
+ * module/application specific definitions which influence the behaviour of MERGLCB.
  * 
- * The application must provide:
- * 1. a void init(void) function which copies the required service definition
- *      objects into the services array. This function must also do any 
- *      additional, application specific initialisation.
- * 2. a void loop(void) function to perform any regular processing.
- * 3. a module.h file which contains the following:
+ * The application source file must provide:
+ * 1. an array of Service definitions
+ *      const Service * const services[]
+ *    which must be initialised with pointers to each service definition for the
+ *    services required by the application.
+ * 2. a void init(void) function which sets the transpoint pointer e.g.
+ *     transport = &canTransport;
+ *    This function must also do any additional, application specific initialisation.
+ * 3. a void loop(void) function to perform any regular processing required by
+ *    the application.
+ * 3. Functions required by the MERGLCB library depending upon the services used:
+ *      uint8_t APP_nvDefault(uint8_t index)
+ *      void APP_nvValueChanged(uint8_t index, uint8_t value, uint8_t oldValue)
+ *      NvValidation APP_nvValidate(uint8_t index, uint8_t value)
+ *      uint8_t APP_addEvent(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum, uint8_t evVal)
+ *      ValidTime APP_isSuitableTimeToWriteFlash(void)
+ *      Processed APP_preProcessMessage(Message * m)
+ *      Processed APP_postProcessMessage(Message * m) 
+ * 
  * 
  * DEFINITIONS FOR MNS SERVICE
  * #define NUM_SERVICES to be the number of services implemented by the module.
- *                      The application's init() function must put the services
- *                      in the services array.
- * #define NUM_RXBUFFERS the number of receive message buffers to be created. A
- *                      larger number of buffers will reduce the chance of missing
- *                      messages but will need to be balanced with the amount of 
- *                      RAM available.
- * #define NUM_TXBUFFERS the number of transmit buffers to be created. Fewer 
- *                      transmit buffers will be needed then receive buffers, 
- *                      the timedResponse mechanism means that 4 or fewer buffers
- *                      should be sufficient.
+ *                      The application must put the services into the services array.
+
  * #define APP_NVM_VERSION the version number of the data structures stored in NVM
  *                      this is located where NV#0 is stored therefore NV_ADDRESS
  *                      and NV_NVM_TYPE must be defined even without the NV service.
- * #define NV_ADDRESS   the address in non volatile memory to place the NVM version 
- *                      number and NVs if the NV service is included.
- * #define NV_NVM_TYPE  the type of NVM memory to be used for NVs. Can be either
- *                      EEPROM_NVM_TYPE or FLASH_NVM_TYPE.
- * Function void APP_GSTOP(void) must be provided, even if empty, to handle a GSTOP
- *                      request.
+ * 
  * 
  * DEFINITIONS FOR NV SERVICE
  * #define NV_NUM       The number of NVs. Will be returned in the parameter block.
  * #define NV_CACHE     Defined, as opposed to undefined, to enable a cache of
  *                      NVs in RAM. Uses more RAM but speeds up access to NVs when
  *                      in normal operation processing events. 
- * Function void APP_factoryResetNv(void) The application must implement this 
+ * #define NV_ADDRESS   the address in non volatile memory to place the NVM version 
+ *                      number and NVs if the NV service is included.
+ * #define NV_NVM_TYPE  the type of NVM memory to be used for NVs. Can be either
+ *                      EEPROM_NVM_TYPE or FLASH_NVM_TYPE.
+ * Function uint8_t APP_nvDefault(uint8_t index) The application must implement this 
  *                      function to provide factory default values for NVs.
- * Function uint8_t APP_nvValidate(uint8_t index, uint8_t value) The application
+ * Function NvValidation APP_nvValidate(uint8_t index, uint8_t value) The application
  *                      must implement this function in order to validate that
  *                      the value being written to an NV is valid.
  * Function void APP_nvValueChanged(uint8_t index, uint8_t newValue, uint8_t oldValue)
@@ -83,12 +87,23 @@
  *                      perform any needed functionality to be performed when an 
  *                      NV value is changed.
  * 
+ * 
  * DEFINITIONS FOR CAN SERVICE
  * #define CANID_ADDRESS The address of the CANID. PIC modules normally stored 
  *                      this at TOP-1.
  * #define CANID_NVM_TYPE The type of NVM where to store the CANID. This can be
  *                      set to be either EEPROM_NVM_TYPE or FLASH_NVM_TYPE. The
  *                      PIC modules normally have this set to EEPROM_NVM_TYPE.
+ * #define CAN_INTERRUPT_PRIORITY 0 for low priority, 1 for high priotity
+ * #define CAN_NUM_RXBUFFERS the number of receive message buffers to be created. A
+ *                      larger number of buffers will reduce the chance of missing
+ *                      messages but will need to be balanced with the amount of 
+ *                      RAM available.
+ * #define CAN_NUM_TXBUFFERS the number of transmit buffers to be created. Fewer 
+ *                      transmit buffers will be needed then receive buffers, 
+ *                      the timedResponse mechanism means that 4 or fewer buffers
+ *                      should be sufficient.
+ * 
  * 
  * DEFINITIONS FOR BOOT SERVICE
  * #define BOOT_FLAG_ADDRESS This should be set to where the module's bootloader
@@ -103,6 +118,7 @@
  *                      between 0x000 and 0x7FF.
  * 
  * 
+ * DEFINITIONS FOR NMS SERVICE
  * #define clkMHz       Must be set to the clock speed of the module. Typically 
  *                      this would be 4 or 16.
  * #define NN_ADDRESS   This must be set to the address in non volatile memory
@@ -141,6 +157,43 @@
  * #define PARAM_NUM_EVENTS        The number of events.
  * #define PARAM_NUM_EV_EVENT      The number of EVs per event
  * 
+ * 
+ * 
+ * DEFINITIONS FOR EVENT TEACH SERVICE
+ * #define EVENT_TABLE_WIDTH   This the the width of the table - not the 
+ *                       number of EVs per event as multiple rows in
+ *                       the table can be used to store an event.
+ * #define NUM_EVENTS          The number of rows in the event table. The
+ *                        actual number of events may be less than this
+ *                        if any events use more the 1 row.
+ * #define EVENT_TABLE_ADDRESS   The address where the event table is stored. 
+ * #define EVENT_TABLE_NVM_TYPE  Set to be either FLASH_NVM_TYPE or EEPROM_NVM_TYPE
+ * #define EVENT_HASH_TABLE      If defined then hash tables will be used for
+ *                        quicker lookup of events at the expense of additional RAM.
+ * #define EVENT_HASH_LENGTH     If hash tables are used then this sets the length
+ *                        of the hash.
+ * #define EVENT_CHAIN_LENGTH    If hash tables are used then this sets the number
+ *                        of events in the hash chain.
+ * #define MAX_HAPPENING         Set to be the maximum Happening value
+ * #define PRODUCED_EVENTS       define if the event producer service is enabled.
+ * #define CONSUMED_EVENTS       define if the event consumer service is enabled.
+ * 
+ * 
+ * DEFINITIONS FOR THE EVENT PRODUCER SERVICE
+ * #define HAPPENING_SIZE        Set to the number of bytes to hold a Happening.
+ *                               Can be either 1 or 2.
+ * 
+ * 
+ * DEFINITIONS FOR THE EVENT CONSUMER SERVICE
+ * #define HANDLE_DATA_EVENTS    Define if the ACON1/ACON2/ACON3 style events 
+ *                               with data are to used in the same way as ACON 
+ *                               style events.
+ * #define COMSUMER_EVS_AS_ACTIONS Define if the EVs are to be treated to be Actions
+ * #define ACTION_SIZE           The number of bytes used to hold an Action. 
+ *                               Currently must be 1.
+ * #define ACTION_QUEUE_SIZE     The size of the Action queue.
+ * 
+ * 
  *************************************************************************
  * 
  * The structure of the library:
@@ -159,9 +212,8 @@
  * 
  * All services must support the Service interface.
  * Transport services must also support the Transport interface.
- * The APP makes use of merglcb functionality and also provides functionality to
- * merglcb. 
- * 
+ * The APP makes use of MERGLCB functionality and also provides functionality to
+ * MERGLCB. 
  * 
  */
 
@@ -169,15 +221,265 @@
 #include "ticktime.h"
 #include "timedResponse.h"
 
+
 /*
- * Timer 0 is used for Tick time
+ * Here is the list of the priorities for each opcode.
  */
+// message priority
+const Priority priorities[256] = {
+    pNORMAL,   // OPC_ACK=0x00,
+    pNORMAL,   // OPC_NAK=0x01,
+    pHIGH,   // OPC_HLT=0x02,
+    pABOVE,   // OPC_BON=0x03,
+    pABOVE,   // OPC_TOF=0x04,
+    pABOVE,   // OPC_TON=0x05,
+    pABOVE,   // OPC_ESTOP=0x06,
+    pHIGH,   // OPC_ARST=0x07,
+    pABOVE,   // OPC_RTOF=0x08,
+    pABOVE,   // OPC_RTON=0x09,
+    pHIGH,   // OPC_RESTP=0x0A,
+    pNORMAL,   // OPC_RSTAT=0x0C,
+    pLOW,   // OPC_QNN=0x0D,
+    pLOW,   // OPC_RQNP=0x10,
+    pNORMAL,   // OPC_RQMN=0x11,
+            pNORMAL,    // 0x12
+            pNORMAL,    // 0x13
+            pNORMAL,    // 0x14
+            pNORMAL,    // 0x15
+            pNORMAL,    // 0x16
+            pNORMAL,    // 0x17
+            pNORMAL,    // 0x18
+            pNORMAL,    // 0x19
+            pNORMAL,    // 0x1A
+            pNORMAL,    // 0x1B
+            pNORMAL,    // 0x1C
+            pNORMAL,    // 0x1D
+            pNORMAL,    // 0x1E
+            pNORMAL,    // 0x1F
+            pNORMAL,    // 0x20
+    pNORMAL,   // OPC_KLOC=0x21,
+    pNORMAL,   // OPC_QLOC=0x22,
+    pNORMAL,   // OPC_DKEEP=0x23,
+            pNORMAL,    // 0x24
+            pNORMAL,    // 0x25
+            pNORMAL,    // 0x26
+            pNORMAL,    // 0x27
+            pNORMAL,    // 0x28
+            pNORMAL,    // 0x29
+            pNORMAL,    // 0x2A
+            pNORMAL,    // 0x2B
+            pNORMAL,    // 0x2C
+            pNORMAL,    // 0x2D
+            pNORMAL,    // 0x2E
+            pNORMAL,    // 0x2F
+    pNORMAL,   // OPC_DBG1=0x30,
+            pNORMAL,    // 0x31
+            pNORMAL,    // 0x32
+            pNORMAL,    // 0x33
+            pNORMAL,    // 0x34
+            pNORMAL,    // 0x35
+            pNORMAL,    // 0x36
+            pNORMAL,    // 0x37
+            pNORMAL,    // 0x38
+            pNORMAL,    // 0x39
+            pNORMAL,    // 0x3A
+            pNORMAL,    // 0x3B
+            pNORMAL,    // 0x3C
+            pNORMAL,    // 0x3D
+            pNORMAL,    // 0x3E
+    pNORMAL,    // OPC_EXTC=0x3F
+    pNORMAL,   // OPC_RLOC=0x40,
+    pNORMAL,   // OPC_QCON=0x41,
+    pLOW,   // OPC_SNN=0x42,
+    pNORMAL,   // OPC_ALOC=0x43,
+    pNORMAL,   // OPC_STMOD=0x44,
+    pNORMAL,   // OPC_PCON=0x45,
+    pNORMAL,   // OPC_KCON=0x46,
+    pNORMAL,   // OPC_DSPD=0x47,
+    pNORMAL,   // OPC_DFLG=0x48,
+    pNORMAL,   // OPC_DFNON=0x49,
+    pNORMAL,   // OPC_DFNOF=0x4A,
+            pNORMAL,    // 0x4B
+    pLOW,   // OPC_SSTAT=0x4C,
+            pNORMAL,    // 0x4D
+            pNORMAL,    // 0x4E
+    pLOW,   // OPC_NNRSM=0x4F,
+    pLOW,   // OPC_RQNN=0x50,
+    pLOW,   // OPC_NNREL=0x51,
+    pLOW,   // OPC_NNACK=0x52,
+    pLOW,   // OPC_NNLRN=0x53,
+    pLOW,   // OPC_NNULN=0x54,
+    pLOW,   // OPC_NNCLR=0x55,
+    pLOW,   // OPC_NNEVN=0x56,
+    pLOW,   // OPC_NERD=0x57,
+    pLOW,   // OPC_RQEVN=0x58,
+    pLOW,   // OPC_WRACK=0x59,
+    pLOW,   // OPC_RQDAT=0x5A,
+    pLOW,   // OPC_RQDDS=0x5B,
+    pLOW,   // OPC_BOOT=0x5C,
+    pLOW,   // OPC_ENUM=0x5D,
+    pLOW,   // OPC_NNRST=0x5E,
+    pLOW,   // OPC_EXTC1=0x5F,
+    pNORMAL,   // OPC_DFUN=0x60,
+    pNORMAL,   // OPC_GLOC=0x61,
+    pNORMAL,   // OPC_ERR=0x63,
+            pNORMAL,    // 0x64
+            pNORMAL,    // 0x65
+    pHIGH,   // OPC_SQU=0x66,
+            pNORMAL,    // 0x67
+            pNORMAL,    // 0x68
+            pNORMAL,    // 0x69
+            pNORMAL,    // 0x6A
+            pNORMAL,    // 0x6B
+            pNORMAL,    // 0x6C
+            pNORMAL,    // 0x6D
+            pNORMAL,    // 0x6E
+    pLOW,   // OPC_CMDERR=0x6F,
+    pLOW,   // OPC_EVNLF=0x70,
+    pLOW,   // OPC_NVRD=0x71,
+    pLOW,   // OPC_NENRD=0x72,
+    pLOW,   // OPC_RQNPN=0x73,
+    pLOW,   // OPC_NUMEV=0x74,
+    pLOW,   // OPC_CANID=0x75,
+    pLOW,   // OPC_MODE=0x76,
+            pNORMAL,    // 0x77
+    pLOW,   // OPC_RQSD=0x78,
+            pNORMAL,    // 0x79
+            pNORMAL,    // 0x7A
+            pNORMAL,    // 0x7B
+            pNORMAL,    // 0x7C
+            pNORMAL,    // 0x7D
+            pNORMAL,    // 0x7E
+    pLOW,   // OPC_EXTC2=0x7F,
+    pNORMAL,   // OPC_RDCC3=0x80,
+            pNORMAL,    // 0x81
+    pNORMAL,   // OPC_WCVO=0x82,
+    pNORMAL,   // OPC_WCVB=0x83,
+    pNORMAL,   // OPC_QCVS=0x84,
+    pNORMAL,   // OPC_PCVS=0x85,
+            pNORMAL,    // 0x86
+    pLOW,   // OPC_RDGN=0x87,
+            pNORMAL,    // 0x88
+            pNORMAL,    // 0x89
+            pNORMAL,    // 0x8A
+            pNORMAL,    // 0x8B
+    pLOW,   // OPC_SD=0x8C,
+            pNORMAL,    // 0x8D
+    pLOW,   // OPC_NVSETRD=0x8E,
+            pNORMAL,    // 0x8F
+    pLOW,   // OPC_ACON=0x90,
+    pLOW,   // OPC_ACOF=0x91,
+    pLOW,   // OPC_AREQ=0x92,
+    pLOW,   // OPC_ARON=0x93,
+    pLOW,   // OPC_AROF=0x94,
+    pLOW,   // OPC_EVULN=0x95,
+    pLOW,   // OPC_NVSET=0x96,
+    pLOW,   // OPC_NVANS=0x97,
+    pLOW,   // OPC_ASON=0x98,
+    pLOW,   // OPC_ASOF=0x99,
+    pLOW,   // OPC_ASRQ=0x9A,
+    pLOW,   // OPC_PARAN=0x9B,
+    pLOW,   // OPC_REVAL=0x9C,
+    pLOW,   // OPC_ARSON=0x9D,
+    pLOW,   // OPC_ARSOF=0x9E,
+    pLOW,   // OPC_EXTC3=0x9F
+    pNORMAL,   // OPC_RDCC4=0xA0,
+            pNORMAL,    // 0xA1
+    pNORMAL,   // OPC_WCVS=0xA2,
+            pNORMAL,    // 0xA3
+            pNORMAL,    // 0xA4
+            pNORMAL,    // 0xA5
+            pNORMAL,    // 0xA6
+            pNORMAL,    // 0xA7
+            pNORMAL,    // 0xA8
+            pNORMAL,    // 0xA9
+            pNORMAL,    // 0xAA
+    pLOW,   // OPC_HEARTB=0xAB,
+            pNORMAL,    // 0xAC
+            pNORMAL,    // 0xAD
+            pNORMAL,    // 0xAE
+    pLOW,   // OPC_GRSP=0xAF,
+    pLOW,   // OPC_ACON1=0xB0,
+    pLOW,   // OPC_ACOF1=0xB1,
+    pLOW,   // OPC_REQEV=0xB2,
+    pLOW,   // OPC_ARON1=0xB3,
+    pLOW,   // OPC_AROF1=0xB4,
+    pLOW,   // OPC_NEVAL=0xB5,
+    pLOW,   // OPC_PNN=0xB6,
+           pNORMAL,    // 0xB7
+    pLOW,   // OPC_ASON1=0xB8,
+    pLOW,   // OPC_ASOF1=0xB9,
+           pNORMAL,    // 0xBA
+           pNORMAL,    // 0xBB
+           pNORMAL,    // 0xBC
+    pLOW,   // OPC_ARSON1=0xBD,
+    pLOW,   // OPC_ARSOF1=0xBE,
+    pLOW,   // OPC_EXTC4=0xBF,
+    pNORMAL,   // OPC_RDCC5=0xC0,
+    pNORMAL,   // OPC_WCVOA=0xC1,
+    pNORMAL,   // OPC_CABDAT=0xC2,
+           pNORMAL,    // 0xC3
+           pNORMAL,    // 0xC4
+           pNORMAL,    // 0xC5
+           pNORMAL,    // 0xC6
+    pLOW,   // OPC_DGN=0xC7,
+           pNORMAL,    // 0xC8
+           pNORMAL,    // 0xC9
+           pNORMAL,    // 0xCA
+           pNORMAL,    // 0xCB
+           pNORMAL,    // 0xCC
+           pNORMAL,    // 0xCD
+           pNORMAL,    // 0xCE
+    pNORMAL,   // OPC_FCLK=0xCF,
+    pLOW,   // OPC_ACON2=0xD0,
+    pLOW,   // OPC_ACOF2=0xD1,
+    pLOW,   // OPC_EVLRN=0xD2,
+    pLOW,   // OPC_EVANS=0xD3,
+    pLOW,   // OPC_ARON2=0xD4,
+    pLOW,   // OPC_AROF2=0xD5,
+           pNORMAL,    // 0xD6
+           pNORMAL,    // 0xD7
+    pLOW,   // OPC_ASON2=0xD8,
+    pLOW,   // OPC_ASOF2=0xD9,
+           pNORMAL,    // 0xDA
+           pNORMAL,    // 0xDB
+           pNORMAL,    // 0xDC
+    pLOW,   // OPC_ARSON2=0xDD,
+    pLOW,   // OPC_ARSOF2=0xDE,
+    pLOW,   // OPC_EXTC5=0xDF,
+    pNORMAL,   // OPC_RDCC6=0xE0,
+    pNORMAL,   // OPC_PLOC=0xE1,
+    pLOW,   // OPC_NAME=0xE2,
+    pNORMAL,   // OPC_STAT=0xE3,
+           pNORMAL,    // 0xE4
+           pNORMAL,    // 0xE5
+    pLOW,   // OPC_ENACK=0xE6,
+    pLOW,   // OPC_ESD=0xE7,
+           pNORMAL,    // 0xE8
+    pLOW,   // OPC_ESD=0xE9,
+           pNORMAL,    // 0xEA
+           pNORMAL,    // 0xEB
+           pNORMAL,    // 0xEC
+           pNORMAL,    // 0xED
+           pNORMAL,    // 0xEE
+    pLOW,   // OPC_PARAMS=0xEF,
+    pLOW,   // OPC_ACON3=0xF0,
+    pLOW,   // OPC_ACOF3=0xF1,
+    pLOW,   // OPC_ENRSP=0xF2,
+    pLOW,   // OPC_ARON3=0xF3,
+    pLOW,   // OPC_AROF3=0xF4,
+    pLOW,   // OPC_EVLRNI=0xF5,
+    pLOW,   // OPC_ACDAT=0xF6,
+    pLOW,   // OPC_ARDAT=0xF7,
+    pLOW,   // OPC_ASON3=0xF8,
+    pLOW,   // OPC_ASOF3=0xF9,
+    pLOW,   // OPC_DDES=0xFA,
+    pLOW,   // OPC_DDRS=0xFB,
+    pLOW,   // OPC_ARSON3=0xFD,
+    pLOW,   // OPC_ARSOF3=0xFE
+           pNORMAL,    // 0xFF
+};
 
-
-/**
- * The list of services implemented by the module.
- */
-//extern const Service * services[];   // Services stored in Flash
 
 /**
  * The module's transport interface.
@@ -247,8 +549,8 @@ ServicePresent have(uint8_t id) {
 //FUNCTIONS TO CALL SERVICES
 /////////////////////////////////////////////
 /**
- * Perform the factory reset for all services and merglcb base.
- * Merglcb function to perform necessary factory reset functionality and also
+ * Perform the factory reset for all services and MERGLCB base.
+ * MERGLCB function to perform necessary factory reset functionality and also
  * call the factoryReset function for each service.
  */
 void factoryReset(void) {
@@ -264,8 +566,8 @@ void factoryReset(void) {
 }
 
 /**
- * Perform power up for all services and merglcb base.
- * Merglcb function to perform necessary power up functionality and also
+ * Perform power up for all services and MERGLCB base.
+ * MERGLCB function to perform necessary power up functionality and also
  * call the powerUp function for each service.
  */
 void powerUp(void) {
@@ -287,7 +589,7 @@ void powerUp(void) {
 
 /**
  * Poll each service.
- * Merglcb function to perform necessary poll functionality and regularly 
+ * MERGLCB function to perform necessary poll functionality and regularly 
  * poll each service.
  * Polling occurs as frequently as possible. It is the responsibility of the
  * service's poll function to ensure that any actions are performed at the 
@@ -340,11 +642,11 @@ void poll(void) {
 
 /**
  * Call each service's high priority interrupt service routine.
- * Merglcb function to handle low priority interrupts. A service wanting 
+ * MERGLCB function to handle low priority interrupts. A service wanting 
  * to use interrupts should enable the interrupts in hardware and then provide 
  * a lowIsr function. Care must to taken to ensure that the cause of the 
- * interrupt is cleared within the Isr and that minimum time is spent in the 
- * Isr. It is preferable to set a flag within the Isr and then perform longer
+ * interrupt is cleared within the ISR and that minimum time is spent in the 
+ * ISR. It is preferable to set a flag within the ISR and then perform longer
  * processing within poll().
  */
 void highIsr(void) {
@@ -359,11 +661,11 @@ void highIsr(void) {
 
 /**
  * Call each service's low priority interrupt service routine.
- * Merglcb function to handle low priority interrupts. A service wanting 
+ * MERGLCB function to handle low priority interrupts. A service wanting 
  * to use interrupts should enable the interrupts in hardware and then provide 
  * a lowIsr function. Care must to taken to ensure that the cause of the 
- * interrupt is cleared within the Isr and that minimum time is spent in the 
- * Isr. It is preferable to set a flag within the Isr and then perform longer
+ * interrupt is cleared within the ISR and that minimum time is spent in the 
+ * ISR. It is preferable to set a flag within the ISR and then perform longer
  * processing within poll().
  */
 void lowIsr(void) {

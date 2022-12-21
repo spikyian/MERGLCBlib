@@ -74,11 +74,23 @@ extern const Service eventTeachService;
  */
 extern uint8_t APP_addEvent(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum, uint8_t evVal);
 
-extern uint8_t validStart(uint8_t index);
+extern Boolean validStart(uint8_t index);
 extern int16_t getEv(uint8_t tableIndex, uint8_t evIndex);
 extern uint16_t getNN(uint8_t tableIndex);
 extern uint16_t getEN(uint8_t tableIndex);
 extern uint8_t findEvent(uint16_t nodeNumber, uint16_t eventNumber);
+extern uint8_t addEvent(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum, uint8_t evVal, uint8_t forceOwnNN);
+#ifdef EVENT_HASH_TABLE
+extern void rebuildHashtable(void);
+extern uint8_t getHash(uint16_t nodeNumber, uint16_t eventNumber);
+#endif
+
+#if HAPPENING_SIZE == 2
+typedef Word Happening;
+#endif
+#if HAPPENING_SIZE == 1
+typedef uint8_t Happening;
+#endif
 
 
 // A helper structure to store the details of an event.
@@ -86,6 +98,12 @@ typedef struct {
     uint16_t NN;
     uint16_t EN;
 } Event;
+
+// Indicates whether on ON event or OFF event
+typedef enum {
+    EVENT_OFF=0,
+    EVENT_ON=1
+}EventState;
 
 
 typedef union

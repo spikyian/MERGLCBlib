@@ -34,6 +34,21 @@
  */
 #define _EVENT_CONSUMER_H_
 
+#include "module.h"
+
+
 extern const Service eventConsumerService;
+
+#define NUM_CONSUMER_DIAGNOSTICS    1
+#define CONSUMER_DIAG_NUMCONSUMED   0
+
+#if ACTION_SIZE == 1
+typedef uint8_t Action;
+#endif
+#if ACTION_SIZE == 2
+typedef Word Action;
+#endif
+
+extern Action * popAction(void);
 
 #endif

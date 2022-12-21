@@ -31,37 +31,41 @@
 
   Ian Hogg Nov 2022
  */
+
+/**
+ * Implementation of message queues used for receive and transmit buffers.
+ */
 #include <xc.h>
 #include "merglcb.h"
 #include "queue.h"
 
 /**
  * Push a message onto the message queue.
- * @param q
- * @param a
- * @return 1 for success 0 for buffer full
+ * @param q the queue
+ * @param m the message
+ * @return QUEUE_SUCCESS for success QUEUE_FAIL for buffer full
  */
-Qresult push(Queue * q, Message * a) {
+Qresult push(Queue * q, Message * m) {
     if (((q->writeIndex+1)&((q->size)-1)) == q->readIndex) return QUEUE_FAIL;	// buffer full
-    (q->messages[q->writeIndex]).opc = a->opc;
-    (q->messages[q->writeIndex]).bytes[0] = a->bytes[0];
-    (q->messages[q->writeIndex]).bytes[1] = a->bytes[1];
-    (q->messages[q->writeIndex]).bytes[2] = a->bytes[2];
-    (q->messages[q->writeIndex]).bytes[3] = a->bytes[3];
-    (q->messages[q->writeIndex]).bytes[4] = a->bytes[4];
-    (q->messages[q->writeIndex]).bytes[5] = a->bytes[5];
-    (q->messages[q->writeIndex]).bytes[6] = a->bytes[6];
-    (q->messages[q->writeIndex]).len = a->len;
+    (q->messages[q->writeIndex]).opc = m->opc;
+    (q->messages[q->writeIndex]).bytes[0] = m->bytes[0];
+    (q->messages[q->writeIndex]).bytes[1] = m->bytes[1];
+    (q->messages[q->writeIndex]).bytes[2] = m->bytes[2];
+    (q->messages[q->writeIndex]).bytes[3] = m->bytes[3];
+    (q->messages[q->writeIndex]).bytes[4] = m->bytes[4];
+    (q->messages[q->writeIndex]).bytes[5] = m->bytes[5];
+    (q->messages[q->writeIndex]).bytes[6] = m->bytes[6];
+    (q->messages[q->writeIndex]).len = m->len;
     q->writeIndex++;
     
     if (q->writeIndex >= q->size) q->writeIndex = 0;
     return QUEUE_SUCCESS;
 }
 /**
- * A bit like a push but doesn't copy the message and instead returns a pointer to
+ * A bit like a pop but doesn't copy the message and instead returns a pointer to
  * the buffer to which the message can be copied by the caller.
- * @param q
- * @return 
+ * @param q the queue
+ * @return a message pointer
  */
 Message * getNextWriteMessage(Queue * q) {
     uint8_t wr;
@@ -76,7 +80,8 @@ Message * getNextWriteMessage(Queue * q) {
 /**
  * Pull the next message from the queue.
  *
- * @return the next action
+ * @param q the queue
+ * @return the next message
  */
 Message * pop(Queue * q) {
     Message * ret;
@@ -91,7 +96,9 @@ Message * pop(Queue * q) {
 /**
  * Peek into the buffer.
  *
- * @return the action
+ * @param q the queue
+ * @param index the position into the queue
+ * @return the message
  */
 Message * peek(Queue * q, unsigned char index) {
     if (q->readIndex == q->writeIndex) return NULL;    // empty
@@ -107,6 +114,8 @@ Message * peek(Queue * q, unsigned char index) {
 
 /**
  * Return number of items in the queue.
+ * @param q the queue
+ * @return the number of items
  */
 unsigned char quantity(Queue * q) {
     return (q->writeIndex - q->readIndex) & (q->size -1);

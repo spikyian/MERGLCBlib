@@ -90,8 +90,7 @@ volatile uint8_t timerExtension1,timerExtension2;
 *                   enable or require interrupts
 ********************************************************************/
 
-void initTicker(uint8_t priority)
-{
+void initTicker(uint8_t priority) {
     uint8_t divider, i;
 
     divider = 0;
@@ -148,8 +147,7 @@ void initTicker(uint8_t priority)
 *                   might rollover and the byte extension would not 
 *                   get updated.
 ********************************************************************/
-uint32_t tickGet(void)
-{
+uint32_t tickGet(void) {
     TickValue currentTime;
     
 #if defined(__18CXX) || defined(__XC8)

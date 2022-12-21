@@ -35,6 +35,12 @@
 /*
  * Implementation of the MERGLCB CAN service. Uses Controller Area Network to
  * carry MERGLCB messages.
+ * This implementation works with the PIC18 ECAN.
+ * The service definition object is called canService.
+ * The transport interface is called canTransport.
+ * Performs self enumeration and CANID collision detection and re-enumeration.
+ * Performs loopback of events for Consumes Own Event behaviour.
+ * Collects diagnostic data to aid communications fault finding.
  */
 #include <xc.h>
 #include <string.h> // for memcpy
@@ -66,14 +72,14 @@
 #define D7      13
 
 // Forward declarations
-void canFactoryReset(void);
-void canPowerUp(void);
-void canPoll(void);
-Processed canProcessMessage(Message * m);
-void canIsr(void);
-DiagnosticVal * canGetDiagnostic(uint8_t index);
+static void canFactoryReset(void);
+static void canPowerUp(void);
+static void canPoll(void);
+static Processed canProcessMessage(Message * m);
+static void canIsr(void);
+static DiagnosticVal * canGetDiagnostic(uint8_t index);
 
-/* The CAN service descriptor */
+/** The CAN service descriptor. */
 const Service canService = {
     SERVICE_ID_CAN,     // id
     1,                  // version
@@ -83,9 +89,15 @@ const Service canService = {
     NULL,               // poll
     canIsr,             // highIsr
     canIsr,             // lowIsr
+    NULL,               // get ESD data
     canGetDiagnostic    // getDiagnostic
 };
 
+// forward declarations
+static SendResult canSendMessage(Message * mp);
+static MessageReceived canReceiveMessage(Message * m);
+
+/** This CAN service implements a transport interface. */
 const Transport canTransport = {
     canSendMessage,
     canReceiveMessage
@@ -100,9 +112,8 @@ static uint8_t canId;
  */
 static DiagnosticVal canDiagnostics[NUM_CAN_DIAGNOSTICS];
 
-TickValue  canTransmitTimeout;
-uint8_t  canTransmitFailed;
-
+static TickValue  canTransmitTimeout;
+static uint8_t  canTransmitFailed;
 /**
  *  Tx and Rx buffers
  */
@@ -122,15 +133,19 @@ static uint8_t    enumerationResults[ENUM_ARRAY_SIZE];
 #define arraySetBit( array, index ) ( array[index>>3] |= ( 1<<(index & 0x07) ) )
 
 // forward declarations
-uint8_t messageAvailable(void);
+static uint8_t messageAvailable(void);
 CanidResult setNewCanId(uint8_t newCanId);
 static uint8_t * getBufferPointer(uint8_t b);
-void canInterruptHandler(void);
-void processEnumeration(void);
-MessageReceived handleSelfEnumeration(uint8_t * p);
-void canFillRxFifo(void);
+static void canInterruptHandler(void);
+static void processEnumeration(void);
+static MessageReceived handleSelfEnumeration(uint8_t * p);
+static void canFillRxFifo(void);
 
-// CAN priorities
+/*
+ * The MERGLCB opcodes define a set of priorities for each opcode.
+ * Here we map these priorities to the CAN priority bits.
+ */
+// The CAN priorities
 static const uint8_t canPri[] = {
     0b01110000, // pLOW
     0b01100000, // pNORMAL
@@ -140,267 +155,13 @@ static const uint8_t canPri[] = {
 };
 #define pSUPER  4   // Not message priority so supply here
 
-// message priority
-static const Priority priorities[256] = {
-    pNORMAL,   // OPC_ACK=0x00,
-    pNORMAL,   // OPC_NAK=0x01,
-    pHIGH,   // OPC_HLT=0x02,
-    pABOVE,   // OPC_BON=0x03,
-    pABOVE,   // OPC_TOF=0x04,
-    pABOVE,   // OPC_TON=0x05,
-    pABOVE,   // OPC_ESTOP=0x06,
-    pHIGH,   // OPC_ARST=0x07,
-    pABOVE,   // OPC_RTOF=0x08,
-    pABOVE,   // OPC_RTON=0x09,
-    pHIGH,   // OPC_RESTP=0x0A,
-    pNORMAL,   // OPC_RSTAT=0x0C,
-    pLOW,   // OPC_QNN=0x0D,
-    pLOW,   // OPC_RQNP=0x10,
-    pNORMAL,   // OPC_RQMN=0x11,
-            pNORMAL,    // 0x12
-            pNORMAL,    // 0x13
-            pNORMAL,    // 0x14
-            pNORMAL,    // 0x15
-            pNORMAL,    // 0x16
-            pNORMAL,    // 0x17
-            pNORMAL,    // 0x18
-            pNORMAL,    // 0x19
-            pNORMAL,    // 0x1A
-            pNORMAL,    // 0x1B
-            pNORMAL,    // 0x1C
-            pNORMAL,    // 0x1D
-            pNORMAL,    // 0x1E
-            pNORMAL,    // 0x1F
-            pNORMAL,    // 0x20
-    pNORMAL,   // OPC_KLOC=0x21,
-    pNORMAL,   // OPC_QLOC=0x22,
-    pNORMAL,   // OPC_DKEEP=0x23,
-            pNORMAL,    // 0x24
-            pNORMAL,    // 0x25
-            pNORMAL,    // 0x26
-            pNORMAL,    // 0x27
-            pNORMAL,    // 0x28
-            pNORMAL,    // 0x29
-            pNORMAL,    // 0x2A
-            pNORMAL,    // 0x2B
-            pNORMAL,    // 0x2C
-            pNORMAL,    // 0x2D
-            pNORMAL,    // 0x2E
-            pNORMAL,    // 0x2F
-    pNORMAL,   // OPC_DBG1=0x30,
-            pNORMAL,    // 0x31
-            pNORMAL,    // 0x32
-            pNORMAL,    // 0x33
-            pNORMAL,    // 0x34
-            pNORMAL,    // 0x35
-            pNORMAL,    // 0x36
-            pNORMAL,    // 0x37
-            pNORMAL,    // 0x38
-            pNORMAL,    // 0x39
-            pNORMAL,    // 0x3A
-            pNORMAL,    // 0x3B
-            pNORMAL,    // 0x3C
-            pNORMAL,    // 0x3D
-            pNORMAL,    // 0x3E
-    pNORMAL,    // OPC_EXTC=0x3F
-    pNORMAL,   // OPC_RLOC=0x40,
-    pNORMAL,   // OPC_QCON=0x41,
-    pLOW,   // OPC_SNN=0x42,
-    pNORMAL,   // OPC_ALOC=0x43,
-    pNORMAL,   // OPC_STMOD=0x44,
-    pNORMAL,   // OPC_PCON=0x45,
-    pNORMAL,   // OPC_KCON=0x46,
-    pNORMAL,   // OPC_DSPD=0x47,
-    pNORMAL,   // OPC_DFLG=0x48,
-    pNORMAL,   // OPC_DFNON=0x49,
-    pNORMAL,   // OPC_DFNOF=0x4A,
-            pNORMAL,    // 0x4B
-    pLOW,   // OPC_SSTAT=0x4C,
-            pNORMAL,    // 0x4D
-            pNORMAL,    // 0x4E
-    pLOW,   // OPC_NNRSM=0x4F,
-    pLOW,   // OPC_RQNN=0x50,
-    pLOW,   // OPC_NNREL=0x51,
-    pLOW,   // OPC_NNACK=0x52,
-    pLOW,   // OPC_NNLRN=0x53,
-    pLOW,   // OPC_NNULN=0x54,
-    pLOW,   // OPC_NNCLR=0x55,
-    pLOW,   // OPC_NNEVN=0x56,
-    pLOW,   // OPC_NERD=0x57,
-    pLOW,   // OPC_RQEVN=0x58,
-    pLOW,   // OPC_WRACK=0x59,
-    pLOW,   // OPC_RQDAT=0x5A,
-    pLOW,   // OPC_RQDDS=0x5B,
-    pLOW,   // OPC_BOOT=0x5C,
-    pLOW,   // OPC_ENUM=0x5D,
-    pLOW,   // OPC_NNRST=0x5E,
-    pLOW,   // OPC_EXTC1=0x5F,
-    pNORMAL,   // OPC_DFUN=0x60,
-    pNORMAL,   // OPC_GLOC=0x61,
-    pNORMAL,   // OPC_ERR=0x63,
-            pNORMAL,    // 0x64
-            pNORMAL,    // 0x65
-    pHIGH,   // OPC_SQU=0x66,
-            pNORMAL,    // 0x67
-            pNORMAL,    // 0x68
-            pNORMAL,    // 0x69
-            pNORMAL,    // 0x6A
-            pNORMAL,    // 0x6B
-            pNORMAL,    // 0x6C
-            pNORMAL,    // 0x6D
-            pNORMAL,    // 0x6E
-    pLOW,   // OPC_CMDERR=0x6F,
-    pLOW,   // OPC_EVNLF=0x70,
-    pLOW,   // OPC_NVRD=0x71,
-    pLOW,   // OPC_NENRD=0x72,
-    pLOW,   // OPC_RQNPN=0x73,
-    pLOW,   // OPC_NUMEV=0x74,
-    pLOW,   // OPC_CANID=0x75,
-    pLOW,   // OPC_MODE=0x76,
-            pNORMAL,    // 0x77
-    pLOW,   // OPC_RQSD=0x78,
-            pNORMAL,    // 0x79
-            pNORMAL,    // 0x7A
-            pNORMAL,    // 0x7B
-            pNORMAL,    // 0x7C
-            pNORMAL,    // 0x7D
-            pNORMAL,    // 0x7E
-    pLOW,   // OPC_EXTC2=0x7F,
-    pNORMAL,   // OPC_RDCC3=0x80,
-            pNORMAL,    // 0x81
-    pNORMAL,   // OPC_WCVO=0x82,
-    pNORMAL,   // OPC_WCVB=0x83,
-    pNORMAL,   // OPC_QCVS=0x84,
-    pNORMAL,   // OPC_PCVS=0x85,
-            pNORMAL,    // 0x86
-    pLOW,   // OPC_RDGN=0x87,
-            pNORMAL,    // 0x88
-            pNORMAL,    // 0x89
-            pNORMAL,    // 0x8A
-            pNORMAL,    // 0x8B
-    pLOW,   // OPC_SD=0x8C,
-            pNORMAL,    // 0x8D
-    pLOW,   // OPC_NVSETRD=0x8E,
-            pNORMAL,    // 0x8F
-    pLOW,   // OPC_ACON=0x90,
-    pLOW,   // OPC_ACOF=0x91,
-    pLOW,   // OPC_AREQ=0x92,
-    pLOW,   // OPC_ARON=0x93,
-    pLOW,   // OPC_AROF=0x94,
-    pLOW,   // OPC_EVULN=0x95,
-    pLOW,   // OPC_NVSET=0x96,
-    pLOW,   // OPC_NVANS=0x97,
-    pLOW,   // OPC_ASON=0x98,
-    pLOW,   // OPC_ASOF=0x99,
-    pLOW,   // OPC_ASRQ=0x9A,
-    pLOW,   // OPC_PARAN=0x9B,
-    pLOW,   // OPC_REVAL=0x9C,
-    pLOW,   // OPC_ARSON=0x9D,
-    pLOW,   // OPC_ARSOF=0x9E,
-    pLOW,   // OPC_EXTC3=0x9F
-    pNORMAL,   // OPC_RDCC4=0xA0,
-            pNORMAL,    // 0xA1
-    pNORMAL,   // OPC_WCVS=0xA2,
-            pNORMAL,    // 0xA3
-            pNORMAL,    // 0xA4
-            pNORMAL,    // 0xA5
-            pNORMAL,    // 0xA6
-            pNORMAL,    // 0xA7
-            pNORMAL,    // 0xA8
-            pNORMAL,    // 0xA9
-            pNORMAL,    // 0xAA
-    pLOW,   // OPC_HEARTB=0xAB,
-            pNORMAL,    // 0xAC
-            pNORMAL,    // 0xAD
-            pNORMAL,    // 0xAE
-    pLOW,   // OPC_GRSP=0xAF,
-    pLOW,   // OPC_ACON1=0xB0,
-    pLOW,   // OPC_ACOF1=0xB1,
-    pLOW,   // OPC_REQEV=0xB2,
-    pLOW,   // OPC_ARON1=0xB3,
-    pLOW,   // OPC_AROF1=0xB4,
-    pLOW,   // OPC_NEVAL=0xB5,
-    pLOW,   // OPC_PNN=0xB6,
-           pNORMAL,    // 0xB7
-    pLOW,   // OPC_ASON1=0xB8,
-    pLOW,   // OPC_ASOF1=0xB9,
-           pNORMAL,    // 0xBA
-           pNORMAL,    // 0xBB
-           pNORMAL,    // 0xBC
-    pLOW,   // OPC_ARSON1=0xBD,
-    pLOW,   // OPC_ARSOF1=0xBE,
-    pLOW,   // OPC_EXTC4=0xBF,
-    pNORMAL,   // OPC_RDCC5=0xC0,
-    pNORMAL,   // OPC_WCVOA=0xC1,
-    pNORMAL,   // OPC_CABDAT=0xC2,
-           pNORMAL,    // 0xC3
-           pNORMAL,    // 0xC4
-           pNORMAL,    // 0xC5
-           pNORMAL,    // 0xC6
-    pLOW,   // OPC_DGN=0xC7,
-           pNORMAL,    // 0xC8
-           pNORMAL,    // 0xC9
-           pNORMAL,    // 0xCA
-           pNORMAL,    // 0xCB
-           pNORMAL,    // 0xCC
-           pNORMAL,    // 0xCD
-           pNORMAL,    // 0xCE
-    pNORMAL,   // OPC_FCLK=0xCF,
-    pLOW,   // OPC_ACON2=0xD0,
-    pLOW,   // OPC_ACOF2=0xD1,
-    pLOW,   // OPC_EVLRN=0xD2,
-    pLOW,   // OPC_EVANS=0xD3,
-    pLOW,   // OPC_ARON2=0xD4,
-    pLOW,   // OPC_AROF2=0xD5,
-           pNORMAL,    // 0xD6
-           pNORMAL,    // 0xD7
-    pLOW,   // OPC_ASON2=0xD8,
-    pLOW,   // OPC_ASOF2=0xD9,
-           pNORMAL,    // 0xDA
-           pNORMAL,    // 0xDB
-           pNORMAL,    // 0xDC
-    pLOW,   // OPC_ARSON2=0xDD,
-    pLOW,   // OPC_ARSOF2=0xDE,
-    pLOW,   // OPC_EXTC5=0xDF,
-    pNORMAL,   // OPC_RDCC6=0xE0,
-    pNORMAL,   // OPC_PLOC=0xE1,
-    pLOW,   // OPC_NAME=0xE2,
-    pNORMAL,   // OPC_STAT=0xE3,
-           pNORMAL,    // 0xE4
-           pNORMAL,    // 0xE5
-    pLOW,   // OPC_ENACK=0xE6,
-    pLOW,   // OPC_ESD=0xE7,
-           pNORMAL,    // 0xE8
-    pLOW,   // OPC_ESD=0xE9,
-           pNORMAL,    // 0xEA
-           pNORMAL,    // 0xEB
-           pNORMAL,    // 0xEC
-           pNORMAL,    // 0xED
-           pNORMAL,    // 0xEE
-    pLOW,   // OPC_PARAMS=0xEF,
-    pLOW,   // OPC_ACON3=0xF0,
-    pLOW,   // OPC_ACOF3=0xF1,
-    pLOW,   // OPC_ENRSP=0xF2,
-    pLOW,   // OPC_ARON3=0xF3,
-    pLOW,   // OPC_AROF3=0xF4,
-    pLOW,   // OPC_EVLRNI=0xF5,
-    pLOW,   // OPC_ACDAT=0xF6,
-    pLOW,   // OPC_ARDAT=0xF7,
-    pLOW,   // OPC_ASON3=0xF8,
-    pLOW,   // OPC_ASOF3=0xF9,
-    pLOW,   // OPC_DDES=0xFA,
-    pLOW,   // OPC_DDRS=0xFB,
-    pLOW,   // OPC_ARSON3=0xFD,
-    pLOW,   // OPC_ARSOF3=0xFE
-           pNORMAL,    // 0xFF
-};
-
+//
 //CAN SERVICE
-
+//
 /**
  * Perform the CAN factory reset. Just set the CANID to the default of 1.
  */
-void canFactoryReset(void) {
+static void canFactoryReset(void) {
     canId = 1;
     writeNVM(CANID_NVM_TYPE, CANID_ADDRESS, canId);
 }
@@ -408,8 +169,12 @@ void canFactoryReset(void) {
 /**
  * Do the CAN power up. Get the saved CANID, provision the ECAN peripheral 
  * of the PIC and set the buffers up.
+ * TXB0 is used as the main transmit buffer
+ * TXB1 is used used to request a self enumeration
+ * TXB2 is used for enumeration replies
+ * RX buffers are organised as a FIFO
  */
-void canPowerUp(void) {
+static void canPowerUp(void) {
     int temp;
         
     // initialise the RX buffers
@@ -572,7 +337,7 @@ void canPowerUp(void) {
  * @param m the message to be processed
  * @return PROCESSED is the message is processed, NOT_PROCESSED otherwise
  */
-Processed canProcessMessage(Message * m) {
+static Processed canProcessMessage(Message * m) {
     // check NN matches us
     if (m->len < 3) return NOT_PROCESSED;
     if (m->bytes[0] != nn.bytes.hi) return NOT_PROCESSED;
@@ -599,7 +364,7 @@ Processed canProcessMessage(Message * m) {
 /**
  * Handle the interrupts from the CAN peripheral. 
  */
-void canIsr(void) {
+static void canIsr(void) {
     // If RX then transfer frame from CAN peripheral to RX message buffer
     // handle enumeration frame
     // check for CANID clash and start self enumeration process
@@ -613,7 +378,7 @@ void canIsr(void) {
  * @param index the diagnostic index
  * @return a pointer to the diagnostic data or NULL if the data isn't available
  */
-DiagnosticVal * canGetDiagnostic(uint8_t index) {
+static DiagnosticVal * canGetDiagnostic(uint8_t index) {
     if ((index<1) || (index>NUM_CAN_DIAGNOSTICS)) {
         return NULL;
     }
@@ -623,11 +388,12 @@ DiagnosticVal * canGetDiagnostic(uint8_t index) {
 
 /*            TRANSPORT INTERFACE             */
 /**
- * Dunno yet.
- * @param m
+ * Send a message on the CAN interface. If there is nothing waiting in the transmit
+ * buffer then send the message immediately otherwise add it to the end of the buffer.
+ * @param m the message to be sent
  * @return SEND_OK if a message was sent, SEND_FAIL if buffer was full
  */
-SendResult canSendMessage(Message * mp) {
+static SendResult canSendMessage(Message * mp) {
     // TODO self enum if invalid canid
     // first check to see if there are messages waiting in the TX queue
     if (quantity(&txQueue) == 0) {
@@ -664,11 +430,17 @@ SendResult canSendMessage(Message * mp) {
     }
     return SEND_OK;
 }
+
 /**
- * 
- * @return 1 if message received 0 otherwise
+ * Check to see if there are any received messages available returning the first
+ * one.
+ * If there are messages waiting in the receive buffer then return the oldest entry.
+ * Sends self enumeration reply if a request has been received.
+ * Collects the self enumeration replies if we sent a request.
+ * Any received message is copied to the location pointed by m.
+ * @return RECEIVED if message received NOT_RECEIVED otherwise
  */
-MessageReceived canReceiveMessage(Message * m){
+static MessageReceived canReceiveMessage(Message * m){
     Message * mp;
     uint8_t * p;
     MessageReceived messageAvailable;
@@ -727,8 +499,9 @@ MessageReceived canReceiveMessage(Message * m){
     }
 }
 
-// Set pointer to correct receive register set for incoming packet
-
+/**
+ *  Set pointer to correct receive register set for incoming packet.
+ */
 static uint8_t * getBufferPointer(uint8_t b) {
     switch (b) {
         case 0:
@@ -754,8 +527,10 @@ static uint8_t * getBufferPointer(uint8_t b) {
 
 /**
  *  Called by ISR to handle tx buffer interrupt.
+ * If there is another message waiting in the TX buffers then copy that to the
+ * TXB0 ECAN and start the transmission.
  */
-void checkTxFifo( void ) {
+static void checkTxFifo( void ) {
     Message * mp;
 
     TXBnIF = 0;                 // reset the interrupt flag
@@ -797,9 +572,11 @@ void checkTxFifo( void ) {
 } // checkTxFifo
 
 /**
- * Called by ISR regularly to check for timeout.
+ * Called by ISR regularly to check for timeout. If a buffer has been waiting too long
+ * (CAN_TX_TIMEOUT) then this is counted as a transmit error and update the
+ * diagnostics and move on to another packet,
  */
-void checkCANTimeout(void) {
+static void checkCANTimeout(void) {
     if (canTransmitTimeout.val != 0) {
         if (tickTimeSince(canTransmitTimeout) > CAN_TX_TIMEOUT) {    
             canTransmitFailed = 1;
@@ -814,8 +591,9 @@ void checkCANTimeout(void) {
 
 /**
  * Process transmit error interrupt.
+ * Checks for arbitration, timeouts and bus errors.
  */
-void canTxError(void) {
+static void canTxError(void) {
     if (TXB0CONbits.TXLARB) {  // lost arbitration
         canTransmitFailed = 1;
         canTransmitTimeout.val = 0;
@@ -838,11 +616,8 @@ void canTxError(void) {
 
 /**
  * This routine is called to manage the CAN interrupts.
- * It may be called directly from the ISR definition in the application, 
- * or it may be called from the MLA interrupt handler
- * via the applicationInterruptHandler routine.
  */
-void canInterruptHandler(void) {
+static void canInterruptHandler(void) {
     if (FIFOWMIF) {      // Receive buffer high water mark, so move data into software fifo
         canFillRxFifo();
     }
@@ -857,10 +632,10 @@ void canInterruptHandler(void) {
 
 /**
  * Start or respond to self-enumeration process.
- * @param p
- * @return 
+ * @param p pointer to the ECAN registers.
+ * @return RECEIVED if it is a message still to be processed, NOT RECEIVED if it was a self enumeration packet and needs no further processing
  */
-MessageReceived handleSelfEnumeration(uint8_t * p) {
+static MessageReceived handleSelfEnumeration(uint8_t * p) {
     uint8_t incomingCanId;
 
     canDiagnostics[CAN_DIAG_RX_MESSAGES].asUint++;
@@ -888,10 +663,10 @@ MessageReceived handleSelfEnumeration(uint8_t * p) {
 }
 
 /**
- * Called from isr when high water mark interrupt received
- * Clears ECAN fifo into software FIFO
+ * Called from ISR when high water mark interrupt received.
+ * Clears ECAN FIFO into software FIFO.
  */
-void canFillRxFifo(void) {
+static void canFillRxFifo(void) {
     uint8_t *ptr;
     uint8_t  hiIndex;
     Message * m;
@@ -941,7 +716,7 @@ void canFillRxFifo(void) {
  * Check if enumeration pending, if so kick it off providing hold off time has expired.
  * If enumeration complete, find and set new can id.
  */
-void processEnumeration(void) {
+static void processEnumeration(void) {
     uint8_t i, newCanId, enumResult;
 
     if (enumerationRequired && (tickTimeSince(enumerationStartTime) > ENUMERATION_HOLDOFF )) {
@@ -991,8 +766,8 @@ void processEnumeration(void) {
     
 
 /**
- * Set a new can id.
- * @return 1 upon success 0 otherwise
+ * Set a new can id. Update the diagnostic statistics.
+ * @return CANID_OK upon success CANID_FAIL otherwise
  */
 CanidResult setNewCanId(uint8_t newCanId) {
     if ((newCanId >= 1) && (newCanId <= 99)) {

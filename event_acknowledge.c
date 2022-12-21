@@ -38,6 +38,11 @@
 #include "event_teach.h"
 #include "mns.h"
 
+/**
+ * This service will send a ENACK message if the module has been taught to
+ * consume the received event. The module must be in EVENT ACK mode. 
+ * The service definition object is called eventAckService.
+ */
 /*
  * Event acknowledge service
  */
@@ -52,6 +57,7 @@ const Service eventAckService = {
     NULL,               // poll
     NULL,               // highIsr
     NULL,               // lowIsr
+    NULL,               // Get ESD data
     NULL                // getDiagnostic
 };
 
@@ -96,7 +102,7 @@ static Processed ackEventProcessMessage(Message * m) {
     if (eventIndex != NO_INDEX) {
         // we have the event in the event table
         // check that we have a consumed Action
-        ev = getEv(eventIndex, 1);
+        ev = getEv(eventIndex, HAPPENING_SIZE); // skip over the Happening EVs to the first Action
         if (ev >= 0) {
             // sent the ack
             sendMessage7(OPC_ENACK, nn.bytes.hi, nn.bytes.lo, m->opc, m->bytes[0], m->bytes[1], m->bytes[2], m->bytes[3]);

@@ -32,6 +32,16 @@
   Ian Hogg Dec 2022
  */
 
+/**
+ * Handle the production of events.
+ * If EVENT_HASH_TABLE is defined then an additional lookup table 
+ * uint8_t action2Event[NUM_HAPPENINGS] is used to obtain an Event 
+ * using a Happening stored in the first EVs. This table is also populated using 
+ * rebuildHashTable(). Given a Happening this table can be used to obtain the 
+ * index into the EventTable for the Happening so the Event at that index in the 
+ * EventTable can be transmitted.
+ */
+
 /*
  * Event producer service
  */
@@ -41,8 +51,13 @@
 #include "event_teach.h"
 #include "event_producer.h"
 #include "mns.h"
+
+// Forward function declarations
+static DiagnosticVal * producerGetDiagnostic(uint8_t index);
 /*
- * Event Producer service
+ * Event Producer service.
+ * The service definition object is called eventProducerService.
+ * Provides a function to allow the application to send events.
  */
 // service definition
 const Service eventProducerService = {
@@ -54,59 +69,90 @@ const Service eventProducerService = {
     NULL,               // poll
     NULL,               // highIsr
     NULL,               // lowIsr
-    NULL                // getDiagnostic
+    NULL,               // Get ESD data
+    producerGetDiagnostic                // getDiagnostic
 };
 
+static DiagnosticVal producerDiagnostics[NUM_PRODUCER_DIAGNOSTICS];
 
+// TODO AREQ stuff
+/**
+ * Provide the means to return the diagnostic data.
+ * @param index the diagnostic index
+ * @return a pointer to the diagnostic data or NULL if the data isn't available
+ */
+static DiagnosticVal * producerGetDiagnostic(uint8_t index) {
+    if ((index<1) || (index>NUM_PRODUCER_DIAGNOSTICS)) {
+        return NULL;
+    }
+    return &(producerDiagnostics[index-1]);
+}
 
 /**
  * Get the Produced Event to transmit for the specified action.
  * If the same produced action has been provisioned for more than 1 event
  * only the first provisioned event will be returned.
  * 
- * @param action the produced action
+ * @param happening used to lookup the event to be sent
+ * @param onOff TRUE for an ON event, FALSE for an OFF event
  * @return TRUE if the produced event is found
  */ 
-void sendProducedEvent(Happening happening, uint8_t onOff) {
+Boolean sendProducedEvent(Happening happening, EventState onOff) {
     Word producedEventNN;
     Word producedEventEN;
-#ifndef HASH_TABLE
+#ifndef EVENT_HASH_TABLE
     uint8_t tableIndex;
 #endif
 
-#ifdef HASH_TABLE
-    if (happening2Event[happening-HAPPENING_BASE] == NO_INDEX) return FALSE;
-    producedEvent.NN = getNN(happening2Event[happening-HAPPENING_BASE]);
-    producedEvent.EN = getEN(happening2Event[happening-HAPPENING_BASE]);
-    return TRUE;
+#ifdef EVENT_HASH_TABLE
+    if (happening2Event[happening] == NO_INDEX) return FALSE;
+    producedEventNN.word = getNN(happening2Event[happening]);
+    producedEventEN.word = getEN(happening2Event[happening]);
 #else
     for (tableIndex=0; tableIndex < NUM_EVENTS; tableIndex++) {
         if (validStart(tableIndex)) {
-            int16_t ev = getEv(tableIndex, 0);
+            Happening h;
+            int16_t ev; 
+#if HAPPENING_SIZE == 2
+            ev = getEv(tableIndex, 0);
             if (ev < 0) continue;
-            if (ev == happening) {
+            h.bytes.hi = (uint8_t) ev;
+            ev = getEv(tableIndex, 1);
+            if (ev < 0) continue;
+            h.bytes.lo = (uint8_t) ev;
+            if (h.word == happening.word) {
+#endif
+#if HAPPENING_SIZE ==1
+            ev = getEv(tableIndex, 0);
+            if (ev < 0) continue;
+            h = (uint8_t) ev;
+            if (h == happening) {
+#endif
                 producedEventNN.word = getNN(tableIndex);
                 producedEventEN.word = getEN(tableIndex);
-
+#endif
                 if (producedEventNN.word == 0) {
                     // Short event
-                    if (onOff) {
+                    if (onOff == EVENT_ON) {
                         sendMessage4(OPC_ASON, nn.bytes.hi, nn.bytes.lo, producedEventEN.bytes.hi, producedEventEN.bytes.lo);
                     } else {
                         sendMessage4(OPC_ASOF, nn.bytes.hi, nn.bytes.lo, producedEventEN.bytes.hi, producedEventEN.bytes.lo);
                     }
                 } else {
                     // Long event
-                    if (onOff) {
+                    if (onOff == EVENT_ON) {
                         sendMessage4(OPC_ACON, producedEventNN.bytes.hi, producedEventNN.bytes.lo, producedEventEN.bytes.hi, producedEventEN.bytes.lo);
                     } else {
                         sendMessage4(OPC_ACOF, producedEventNN.bytes.hi, producedEventNN.bytes.lo, producedEventEN.bytes.hi, producedEventEN.bytes.lo);
                     }
                 } 
-                return;
+                producerDiagnostics[PRODUCER_DIAG_NUMPRODUCED].asUint++;
+                return TRUE;
+#ifndef EVENT_HASH_TABLE
             }
         }
     }
 #endif
+    return FALSE;
 }
 

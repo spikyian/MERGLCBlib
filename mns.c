@@ -34,10 +34,10 @@
 
 /**
  * This is the Minimum Node Specification Service.
+ * The service definition object is called mnsService.
  * This is a large service as it handles mode transitions, including setting of 
  * node number. The module's LEDs and push button are also supported.
- * Service discovery and Diagnostsics are also processed from this service.
- * 
+ * Service discovery and Diagnostics are also processed from this service.
  */
 #include <xc.h>
 #include "merglcb.h"
@@ -52,12 +52,13 @@
 #define MNS_VERSION 1
 
 // Forward declarations
-void mnsFactoryReset(void);
-void mnsPowerUp(void);
-void mnsPoll(void);
-Processed mnsProcessMessage(Message * m);
-void mnsLowIsr(void);
-DiagnosticVal * mnsGetDiagnostic(uint8_t index);
+static void mnsFactoryReset(void);
+static void mnsPowerUp(void);
+static void mnsPoll(void);
+static Processed mnsProcessMessage(Message * m);
+static void mnsLowIsr(void);
+static DiagnosticVal * mnsGetDiagnostic(uint8_t index);
+
 void setLEDsByMode(void);
 
 /**
@@ -72,6 +73,7 @@ const Service mnsService = {
     mnsPoll,                // poll
     NULL,                   // highIsr
     mnsLowIsr,              // lowIsr
+    NULL,                   // get ESD data
     mnsGetDiagnostic        // getDiagnostic
 };
 
@@ -123,10 +125,10 @@ DiagnosticVal mnsDiagnostics[NUM_MNS_DIAGNOSTICS];
 
 /* Heartbeat controls */
 static uint8_t heartbeatSequence;
-TickValue heartbeatTimer;
+static TickValue heartbeatTimer;
 
 /* Heartbeat controls */
-TickValue uptimeTimer;
+static TickValue uptimeTimer;
 
 /**
  * Forward declaration for the TimedResponse callback function for sending
@@ -153,7 +155,7 @@ TimedResponseResult mnsTRallDiagnosticsCallback(uint8_t type, const Service * s,
 /**
  * Perform the MNS factory reset. Just set the node number and mode to default.
  */
-void mnsFactoryReset(void) {
+static void mnsFactoryReset(void) {
     nn.bytes.hi = NN_HI_DEFAULT;
     nn.bytes.lo = NN_LO_DEFAULT;
     writeNVM(NN_NVM_TYPE, NN_ADDRESS, nn.bytes.hi);
@@ -168,7 +170,7 @@ void mnsFactoryReset(void) {
  * Loads the node number and mode from non volatile memory. Initialises the LEDs 
  * clear the Diagnostics values.
  */
-void mnsPowerUp(void) {
+static void mnsPowerUp(void) {
     int temp;
     uint8_t i;
     
@@ -222,7 +224,7 @@ void mnsPowerUp(void) {
  * @param m the MERGLCB message to be processed
  * @return PROCESSED if the message was processed, NOT_PROCESSED otherwise
  */
-Processed mnsProcessMessage(Message * m) {
+static Processed mnsProcessMessage(Message * m) {
     uint8_t i;
     uint8_t flags;
     const Service * s;
@@ -429,6 +431,7 @@ Processed mnsProcessMessage(Message * m) {
                 if (m->bytes[3] == 0) {
                     // a DGN for all diagnostics for a particular service
                     startTimedResponse(TIMED_RESPONSE_RDGN, s->serviceNo, mnsTRallDiagnosticsCallback);
+                    return PROCESSED;
                 }
                 if (s->getDiagnostic == NULL) {
                     // the service doesn't support diagnostics
@@ -447,22 +450,30 @@ Processed mnsProcessMessage(Message * m) {
             return PROCESSED;
         case OPC_RQSD:  // service discovery
             if (m->len < 4) {
-                sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
+                sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_RQSD, SERVICE_ID_MNS, CMDERR_INV_CMD);
                 return PROCESSED;
             }
             if (m->bytes[2] == 0) {
                 // a SD response for all of the services
                 startTimedResponse(TIMED_RESPONSE_RQSD, SERVICE_ID_MNS, mnsTRserviceDiscoveryCallback);
             } else {
-                s = findService(m->bytes[2]);
                 // an ESD for the particular service
-                // TODO What additional data for ESD?
-                sendMessage7(OPC_ESD, nn.bytes.hi, nn.bytes.lo, s->serviceNo, 0,0,0,0);
+                s = findService(m->bytes[2]);
+                if (s == NULL) {
+                    sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_RQSD, SERVICE_ID_MNS, GRSP_INVALID_SERVICE);
+                    return PROCESSED;
+                }
+                if (s->getESDdata == NULL) {
+                    sendMessage7(OPC_ESD, nn.bytes.hi, nn.bytes.lo, s->serviceNo, 0,0,0,0);
+                } else {
+                    sendMessage7(OPC_ESD, nn.bytes.hi, nn.bytes.lo, s->serviceNo, 
+                            s->getESDdata(1),s->getESDdata(2),s->getESDdata(3),s->getESDdata(4));
+                }
             }
             return PROCESSED;
         case OPC_MODE:  // set operating mode
             if (m->len < 4) {
-                sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
+                sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_MODE, SERVICE_ID_MNS, CMDERR_INV_CMD);
                 return PROCESSED;
             }
             newMode = m->bytes[2];
@@ -527,7 +538,7 @@ Processed mnsProcessMessage(Message * m) {
  * Called regularly, processing for LED flashing and mode state transition 
  * timeouts.
  */
-void mnsPoll(void) {
+static void mnsPoll(void) {
     // Heartbeat message
     if ((mode != MODE_SETUP) && (mode != MODE_UNINITIALISED) && (mode != MODE_NOHEARTB)) {
         // don't send in NOHEARTB mode - or any others
@@ -697,7 +708,7 @@ void mnsPoll(void) {
  * The MNS interrupt service routine. Handles the tickTime overflow to update
  * the extension bytes.
  */
-void mnsLowIsr(void) {
+static void mnsLowIsr(void) {
     // Tick Timer interrupt
     //check to see if the symbol timer overflowed
     if(TMR_IF)
@@ -717,7 +728,7 @@ void mnsLowIsr(void) {
  * @param index the index indicating which diagnostic is required.
  * @return the Diagnostic value or NULL if the value does not exist.
  */
-DiagnosticVal * mnsGetDiagnostic(uint8_t index) {
+static DiagnosticVal * mnsGetDiagnostic(uint8_t index) {
     if ((index<1) || (index>NUM_MNS_DIAGNOSTICS)) {
         return NULL;
     }

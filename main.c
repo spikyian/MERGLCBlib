@@ -33,7 +33,11 @@
  */
 
 /*
- * This is the main() code.
+ * This is the main() code. This handles all the set up before calling the 
+ * application's setup() routine. The Application's loop() is called from the 
+ * main loop here which carries out additional background processing such as 
+ * handling messages received from the transport interface via the service poll()
+ * methods.
  */
 #include <xc.h>
 #include "merglcb.h"

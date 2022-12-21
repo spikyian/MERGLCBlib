@@ -68,10 +68,6 @@ extern const Transport canTransport;
 #define CAN_DIAG_CANID_ENUMS_FAIL   0x10 // Number of CANID enumeration failures
 
 
-
-extern SendResult canSendMessage(Message * m);
-extern MessageReceived canReceiveMessage(Message * m);
-
 /**
  * The default value of the CANID.
  */

@@ -41,6 +41,7 @@
 /*
  * Implementation of the BOOT service. Supports the FCU and CBUS (PIC based)
  * bootloading protocol.
+ * The service definition object is called bootService.
  * In order to be compatible with the FCU bootloader there are additional
  * requirements for the parameter block which are actually supported by the MNS.
  */
@@ -70,6 +71,7 @@ const Service bootService = {
     NULL,               // poll
     NULL,               // highIsr
     NULL,               // lowIsr
+    NULL,               // ESD data
     NULL                // getDiagnostic
 };
 

@@ -330,6 +330,18 @@ typedef enum Opcode {
     OPC_ARSOF3=0xFE
 } Opcode;
 
+typedef enum Boolean {
+    FALSE,
+    TRUE
+} Boolean;
+
+typedef enum Result {
+    RESULT_FAIL,
+    RESULT_SUCCESS
+} Result;
+
+extern const Priority priorities[256];
+
 // Functions to send a MERGLCB message on any defined transport layer
 // XC8 doesn't support function overloading nor varargs
 /**
@@ -479,6 +491,7 @@ typedef struct Service {
     void (* lowIsr)(void);  // handle any service specific high priority  interrupt service routine
     //void modes();
     //void statusCodes();
+    uint8_t (* getESDdata)(uint8_t id);
     DiagnosticVal * (* getDiagnostic)(uint8_t index);   // pointer to function returning DiagnosticVal*
 } Service;
 

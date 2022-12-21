@@ -45,14 +45,6 @@
  */
 extern const Service mnsService;
 
-/**
- * Allows the MNS diagnostic data to be retrieved.
- * @param index
- * @return 
- */
-extern DiagnosticVal * mnsGetDiagnostic(uint8_t index);
-extern DiagnosticVal mnsDiagnostics[];
-
 /* The list of the diagnostics supported */
 #define NUM_MNS_DIAGNOSTICS 6
 #define MNS_DIAGNOSTICS_ALL         0x00    // return a series of DGN messages for each services? supported data.
@@ -63,6 +55,7 @@ extern DiagnosticVal mnsDiagnostics[];
 #define MNS_DIAGNOSTICS_NNCHANGE    0x05    // return number of Node Number changes.
 #define MNS_DIAGNOSTICS_RXMESS      0x06    // return number of received messages acted upon.
 
+extern DiagnosticVal mnsDiagnostics[NUM_MNS_DIAGNOSTICS];
 /**
  * The module's node number.
  */

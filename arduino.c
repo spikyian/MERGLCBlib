@@ -24,6 +24,11 @@
 	
 */ 
 
+/**
+ * The functions here emulate some of the common Arduino functions. These may help
+ * some developers to feel more comfortable in developing software. 
+ */
+
 #include <xc.h>
 #include "merglcb.h"
 #include "module.h"
@@ -42,8 +47,10 @@
  */
 
 
-#ifdef _PIC18
-// PIN configs
+#ifdef CANMIO
+/** PIN configs are used to map between the channel number and the physical
+ * PIC ports.
+ */
 const Config configs[] = {
     //PIN, PORT, PORT#, AN#
     {11, 'C', 0, 0xFF},   //0
@@ -65,35 +72,40 @@ const Config configs[] = {
 };
 #endif
 
-void pinMode(uint8_t pin, PinMode mode) {
-    if (pin < sizeof(configs)/sizeof(Config)) {
+/**
+ * Set the specified channel to the type as specified by mode.
+ * @param channel the channel number
+ * @param mode the type of pin
+ */
+void pinMode(uint8_t channel, PinMode mode) {
+    if (channel < sizeof(configs)/sizeof(Config)) {
         // set digital/analogue first
         switch (mode) {
             case INPUT:
             case OUTPUT:
-                if (configs[pin].an < 8) {
-                    ANCON0 &= ~(1 << configs[pin].an);
-                } else if (configs[pin].an < 16) {
-                    ANCON1 &= ~(1 << (configs[pin].an - 8));
+                if (configs[channel].an < 8) {
+                    ANCON0 &= ~(1 << configs[channel].an);
+                } else if (configs[channel].an < 16) {
+                    ANCON1 &= ~(1 << (configs[channel].an - 8));
                 }
                 break;
             case ANALOGUE:
-                if (configs[pin].an < 8) {
-                    ANCON0 |= (1 << configs[pin].an);
-                } else if (configs[pin].an < 16) {
-                    ANCON1 |= (1 << (configs[pin].an - 8));
+                if (configs[channel].an < 8) {
+                    ANCON0 |= (1 << configs[channel].an);
+                } else if (configs[channel].an < 16) {
+                    ANCON1 |= (1 << (configs[channel].an - 8));
                 }
                 break;
         }
         // now set the digital port direction
-        switch(configs[pin].port) {
+        switch(configs[channel].port) {
             case 'A':
                 switch (mode) {
                     case OUTPUT:
-                        TRISA &= ~(1 << configs[pin].no);
+                        TRISA &= ~(1 << configs[channel].no);
                         break;
                     case INPUT:
-                        TRISA |= (1 << configs[pin].no);
+                        TRISA |= (1 << configs[channel].no);
                         break;
                     case ANALOGUE:
                         break;
@@ -102,10 +114,10 @@ void pinMode(uint8_t pin, PinMode mode) {
             case 'B':
                 switch (mode) {
                     case OUTPUT:
-                        TRISB &= ~(1 << configs[pin].no);
+                        TRISB &= ~(1 << configs[channel].no);
                         break;
                     case INPUT:
-                        TRISB |= (1 << configs[pin].no);
+                        TRISB |= (1 << configs[channel].no);
                         break;
                     case ANALOGUE:
                         break;
@@ -114,10 +126,10 @@ void pinMode(uint8_t pin, PinMode mode) {
             case 'C':
                 switch (mode) {
                     case OUTPUT:
-                        TRISC &= ~(1 << configs[pin].no);
+                        TRISC &= ~(1 << configs[channel].no);
                         break;
                     case INPUT:
-                        TRISC |= (1 << configs[pin].no);
+                        TRISC |= (1 << configs[channel].no);
                         break;
                     case ANALOGUE:
                         break;
@@ -129,30 +141,35 @@ void pinMode(uint8_t pin, PinMode mode) {
     }
 }
 
-
-void digitalWrite(uint8_t pin, uint8_t value) {
-    if (pin < sizeof(configs)/sizeof(Config)) {
+/**
+ * Write the specified value to the channel pin. Does not check that the channel is
+ * configured to be in OUTPUT mode.
+ * @param channel
+ * @param value
+ */
+void digitalWrite(uint8_t channel, uint8_t value) {
+    if (channel < sizeof(configs)/sizeof(Config)) {
         // now set the digital port value
-        switch(configs[pin].port) {
+        switch(configs[channel].port) {
             case 'A':
                 if (value) {
-                    LATA |= (1 << configs[pin].no);
+                    LATA |= (1 << configs[channel].no);
                 } else {
-                    LATA &= ~(1 << configs[pin].no);
+                    LATA &= ~(1 << configs[channel].no);
                 }
                 break;
             case 'B':
                 if (value) {
-                    LATB |= (1 << configs[pin].no);
+                    LATB |= (1 << configs[channel].no);
                 } else {
-                    LATB &= ~(1 << configs[pin].no);
+                    LATB &= ~(1 << configs[channel].no);
                 }
                 break;
             case 'C':
                 if (value) {
-                    LATC |= (1 << configs[pin].no);
+                    LATC |= (1 << configs[channel].no);
                 } else {
-                    LATC &= ~(1 << configs[pin].no);
+                    LATC &= ~(1 << configs[channel].no);
                 }
                 break;
             default:
@@ -161,16 +178,22 @@ void digitalWrite(uint8_t pin, uint8_t value) {
     }
 }
 
-uint8_t digitalRead(uint8_t pin) {
-    if (pin < sizeof(configs)/sizeof(Config)) {
+/**
+ * Read a pin to obtain the current digital input value. Does not check that the
+ * channel pin is operating in INPUT mode.
+ * @param channel
+ * @return the digital value
+ */
+uint8_t digitalRead(uint8_t channel) {
+    if (channel < sizeof(configs)/sizeof(Config)) {
         // now get the digital port value
-        switch(configs[pin].port) {
+        switch(configs[channel].port) {
             case 'A':
-                return PORTA & (1 << configs[pin].no);
+                return PORTA & (1 << configs[channel].no);
             case 'B':
-                return PORTB & (1 << configs[pin].no);
+                return PORTB & (1 << configs[channel].no);
             case 'C':
-                return PORTC & (1 << configs[pin].no);
+                return PORTC & (1 << configs[channel].no);
             default:
                 break;
         }
