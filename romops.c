@@ -28,8 +28,13 @@
 
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
-
-  Ian Hogg Nov 2022
+*/
+/*
+ Original CANACC8 assembler version (c) Mike Bolton
+ Modifications to EEPROM routines and conversion to C18 (c) Andrew Crosland
+ FLASH routines by (c) Chuck Hoelzen
+ Modifications, refinements & combine EEPROM and FLASH into one module (C) Pete Brownlow 2014-2017   software@upsys.co.u
+ Major rewrite  Ian Hogg Nov 2022
  */
 
 /*
@@ -152,6 +157,7 @@ int16_t read_flash(uint24_t index) {
     } else {
         // we'll read single byte from flash
         TBLPTR = index;
+        TBLPTRU = 0;
         asm("TBLRD");
         return TABLAT;
     }
@@ -170,6 +176,7 @@ void eraseFlashBlock(void) {
     
     interruptEnabled = geti(); // store current global interrupt state
     TBLPTR = flashBlock;
+    TBLPTRU = 0;
     EECON1bits.EEPGD = 1;   // 1=Program memory, 0=EEPROM
     EECON1bits.CFGS = 0;    // 0=Program memory/EEPROM, 1=ConfigBits
     EECON1bits.WREN = 1;    // enable write to memory
@@ -193,7 +200,11 @@ void eraseFlashBlock(void) {
 void flushFlashBlock(void) {
     uint8_t interruptEnabled;
     TBLPTR = flashBlock; //force row boundary
+    TBLPTRU = 0;
     if (! flashFlags.writeNeeded) return;
+    if (flashFlags.eraseNeeded) {
+        eraseFlashBlock();
+    }
     
     interruptEnabled = geti(); // store current global interrupt state
     bothDi();     // disable all interrupts ERRATA says this is needed before TBLWT
@@ -208,6 +219,7 @@ void flushFlashBlock(void) {
     //   the holding register.
     // So we put it back into the block here
     TBLPTR = flashBlock;
+    TBLPTRU = 0;
     EECON1bits.EEPGD = 1;   // 1=Program memory, 0=EEPROM
     EECON1bits.CFGS = 0;    // 0=ProgramMemory/EEPROM, 1=ConfigBits
     EECON1bits.FREE = 0;    // No erase
@@ -220,7 +232,7 @@ void flushFlashBlock(void) {
         bothEi();                   /* Enable Interrupts */
     }
     EECON1bits.WREN = 0;
-    flashFlags.writeNeeded = 0;
+    flashFlags.asByte = 0;  // no erase, no write
 }
 
 /**
@@ -228,12 +240,16 @@ void flushFlashBlock(void) {
  */
 void loadFlashBlock(void) {
     EECON1=0X80;    // access to flash
-        TBLPTR = flashBlock;
-        for (unsigned char i=0; i<64; i++) {
-            asm("TBLRD*+");
-            flashBuffer[i] = TABLAT;
-        }
-        TBLPTR = flashBlock;
+    TBLPTR = flashBlock;
+    TBLPTRU = 0;
+    for (uint8_t i=0; i<64; i++) {
+        asm("TBLRD*+");
+        NOP();
+        flashBuffer[i] = TABLAT;
+    }
+    TBLPTR = flashBlock;
+    TBLPTRU = 0;
+    flashFlags.asByte = 0; // no erase, no write needed
 }
    
 /**
@@ -262,16 +278,7 @@ uint8_t write_flash(uint24_t index, uint8_t value) {
      * to be erased before writing.
      *
      */
-    if (BLOCK(index) == flashBlock) {
-        // same block - just update the memory
-        if (flashBuffer[OFFSET(index)] == value) {
-            // No change
-            return GRSP_OK;
-        }
-        flashFlags.eraseNeeded = (value & ~flashBuffer[OFFSET(index)])?1:0;
-        flashBuffer[OFFSET(index)] = value;
-        flashFlags.writeNeeded = 1;
-    } else {
+    if (BLOCK(index) != flashBlock) {
         // ok we want to write a different block so flush the current block 
         if (flashFlags.eraseNeeded) {
             eraseFlashBlock();
@@ -283,14 +290,11 @@ uint8_t write_flash(uint24_t index, uint8_t value) {
         // and load the new one
         flashBlock = BLOCK(index);
         loadFlashBlock();
-        
-        if (flashBuffer[OFFSET(index)] == value) {
-            // No change
-            return GRSP_OK;
-        }
-        flashFlags.eraseNeeded = (value & ~flashBuffer[OFFSET(index)])?1:0;
-        flashBuffer[OFFSET(index)] = value;
+    }
+    flashFlags.eraseNeeded = (value & ~flashBuffer[OFFSET(index)])?1:0;
+    if (flashBuffer[OFFSET(index)] != value) {
         flashFlags.writeNeeded = 1;
+        flashBuffer[OFFSET(index)] = value;
     }
     return GRSP_OK;
 }
@@ -334,8 +338,9 @@ int16_t readNVM(NVMtype type, uint24_t index) {
  *  Initialise variables for Flash program tracking.
  */
 void initRomOps(void) {
-    flashFlags.asByte = 0;
-    flashBlock = 0x0000; // invalid but as long a write isn't needed it will be ok
+    flashFlags.asByte = 0;  // no write and no erase
+    flashBlock = 0x0000; // invalid but as long a write isn't needed it will be 
+                         // ok. Next write will always be to a different block.
     TBLPTRU = 0;
 }
 

@@ -236,7 +236,7 @@ const Service eventTeachService = {
 };
 
 // Space for the event table
-static const uint8_t eventTable[NUM_EVENTS * EVENTTABLE_ROW_WIDTH] __at(EVENT_TABLE_ADDRESS) ={0xFF};
+static __persistent const uint8_t eventTable[NUM_EVENTS * EVENTTABLE_ROW_WIDTH] __at(EVENT_TABLE_ADDRESS); // ={0xFF};
 
 #ifdef EVENT_HASH_TABLE
 #ifdef CONSUMED_EVENTS
@@ -255,7 +255,6 @@ uint8_t happening2Event[MAX_HAPPENING+1];
  * Factory reset clears the event table.
  */
 static void teachFactoryReset(void) {
-    initRomOps();
     clearAllEvents();
 }
 
@@ -741,10 +740,10 @@ uint8_t addEvent(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum, uint8
                 for (e = 0; e < EVENT_TABLE_WIDTH; e++) {
                     writeNVM(EVENT_TABLE_NVM_TYPE, EVENT_TABLE_ADDRESS + EVENTTABLE_ROW_WIDTH*tableIndex+EVENTTABLE_OFFSET_EVS+e, EV_FILL);
                 }
-                flushFlashBlock();
-#ifdef EVENT_HASH_TABLE
-                rebuildHashtable();
-#endif
+//                flushFlashBlock();
+//#ifdef EVENT_HASH_TABLE
+//                rebuildHashtable();
+//#endif
                 error = 0;
                 break;
             }
