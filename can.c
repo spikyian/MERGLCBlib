@@ -375,7 +375,7 @@ static void canIsr(void) {
 
 /**
  * Provide the means to return the diagnostic data.
- * @param index the diagnostic index
+ * @param index the diagnostic index 1..NUM_CAN_DIAGNOSTSICS
  * @return a pointer to the diagnostic data or NULL if the data isn't available
  */
 static DiagnosticVal * canGetDiagnostic(uint8_t index) {
@@ -648,6 +648,7 @@ static MessageReceived handleSelfEnumeration(uint8_t * p) {
             // If we receive a packet with our own canid, initiate enumeration as automatic conflict resolution (Thanks to Bob V for this idea)
             // we know enumerationInProgress = FALSE here
             enumerationRequired = 1;
+            canDiagnostics[CAN_DIAG_CANID_CONFLICTS].asUint++;
             enumerationStartTime.val = tickGet();  // Start hold off time for self enumeration - start after 200ms delay
         }
     }

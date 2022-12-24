@@ -239,7 +239,7 @@ typedef enum Opcode {
     OPC_DFUN=0x60,
     OPC_GLOC=0x61,
     OPC_ERR=0x63,
-    OPC_SQU=0x66,
+//    OPC_SQU=0x66,
     OPC_CMDERR=0x6F,
     OPC_EVNLF=0x70,
     OPC_NVRD=0x71,

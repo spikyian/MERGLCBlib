@@ -514,7 +514,7 @@ static Processed mnsProcessMessage(Message * m) {
                     break;
             }
             return PROCESSED;
-        case OPC_SQU:   // squelch
+/*        case OPC_SQU:   // squelch
             // TODO     Handle Squelch
             if (m->len < 4) {
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
@@ -524,7 +524,7 @@ static Processed mnsProcessMessage(Message * m) {
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_PARAM_IDX);
                 return PROCESSED;
             }
-            return PROCESSED;
+            return PROCESSED; */
         case OPC_NNRST: // reset CPU
             RESET();
             return PROCESSED;
@@ -725,7 +725,7 @@ static void mnsLowIsr(void) {
 
 /**
  * Get the MNS diagnostic values.
- * @param index the index indicating which diagnostic is required.
+ * @param index the index indicating which diagnostic is required. 1..NUM_MNS_DIAGNOSTICS
  * @return the Diagnostic value or NULL if the value does not exist.
  */
 static DiagnosticVal * mnsGetDiagnostic(uint8_t index) {
