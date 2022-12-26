@@ -235,8 +235,8 @@ const Service eventTeachService = {
     NULL                // getDiagnostic
 };
 
-// Space for the event table
-static __persistent const uint8_t eventTable[NUM_EVENTS * EVENTTABLE_ROW_WIDTH] __at(EVENT_TABLE_ADDRESS); // ={0xFF};
+// Space for the event table and initialise to 0xFF
+static const uint8_t eventTable[NUM_EVENTS * EVENTTABLE_ROW_WIDTH] __at(EVENT_TABLE_ADDRESS) ={[0 ... NUM_EVENTS * EVENTTABLE_ROW_WIDTH-1] = 0xFF};
 
 #ifdef EVENT_HASH_TABLE
 #ifdef CONSUMED_EVENTS
@@ -319,14 +319,12 @@ static Processed teachProcessMessage(Message* m) {
             if (checkLen(m, 5) == PROCESSED) return PROCESSED;
             if (mode != MODE_LEARN) return PROCESSED;
             // do unlearn
-            // TODO
             doEvuln((uint16_t)(m->bytes[0]<<8) | (m->bytes[1]), (uint16_t)(m->bytes[2]<<8) | (m->bytes[3]));
             return PROCESSED;
         case OPC_REQEV:     // B2 REQEV - NN EN EV#
             if (checkLen(m, 6) == PROCESSED) return PROCESSED;
             if (mode != MODE_LEARN) return PROCESSED;
             // do read EV
-            // TODO
             doReqev((uint16_t)(m->bytes[0]<<8) | (m->bytes[1]), (uint16_t)(m->bytes[2]<<8) | (m->bytes[3]), m->bytes[4]);
             return PROCESSED;
         /* This block contain an NN which needs to match our NN */
@@ -377,14 +375,12 @@ static Processed teachProcessMessage(Message* m) {
             if (checkLen(m, 5) == PROCESSED) return PROCESSED;
             if ((m->bytes[0] != nn.bytes.hi) || (m->bytes[1] != nn.bytes.lo)) return PROCESSED;  // not us
             // do REVAL
-            // TODO
             doReval(m->bytes[2], m->bytes[3]);
             return PROCESSED;
         case OPC_EVLRNI:    // F5 EVLRNI - NN, EN, EN#, EV#, EVval
             if (checkLen(m, 8) == PROCESSED) return PROCESSED;
             if ((m->bytes[0] != nn.bytes.hi) || (m->bytes[1] != nn.bytes.lo)) return PROCESSED;  // not us
             // do EVLRNI
-            // TODO
             doEvlrn((uint16_t)(m->bytes[0]<<8) | (m->bytes[1]), (uint16_t)(m->bytes[2]<<8) | (m->bytes[3]), m->bytes[5], m->bytes[6]);
             return PROCESSED;
         default:

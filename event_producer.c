@@ -96,10 +96,11 @@ static DiagnosticVal * producerGetDiagnostic(uint8_t index) {
  * @param happening used to lookup the event to be sent
  * @param onOff TRUE for an ON event, FALSE for an OFF event
  * @return TRUE if the produced event is found
- */ 
+ */
 Boolean sendProducedEvent(Happening happening, EventState onOff) {
     Word producedEventNN;
     Word producedEventEN;
+    uint8_t opc;
 #ifndef EVENT_HASH_TABLE
     uint8_t tableIndex;
 #endif
@@ -134,18 +135,20 @@ Boolean sendProducedEvent(Happening happening, EventState onOff) {
                 if (producedEventNN.word == 0) {
                     // Short event
                     if (onOff == EVENT_ON) {
-                        sendMessage4(OPC_ASON, nn.bytes.hi, nn.bytes.lo, producedEventEN.bytes.hi, producedEventEN.bytes.lo);
+                        opc = OPC_ASON;
                     } else {
-                        sendMessage4(OPC_ASOF, nn.bytes.hi, nn.bytes.lo, producedEventEN.bytes.hi, producedEventEN.bytes.lo);
+                        opc = OPC_ASOF;
                     }
+                    producedEventNN.word = nn.word;
                 } else {
                     // Long event
                     if (onOff == EVENT_ON) {
-                        sendMessage4(OPC_ACON, producedEventNN.bytes.hi, producedEventNN.bytes.lo, producedEventEN.bytes.hi, producedEventEN.bytes.lo);
+                        opc = OPC_ACON;
                     } else {
-                        sendMessage4(OPC_ACOF, producedEventNN.bytes.hi, producedEventNN.bytes.lo, producedEventEN.bytes.hi, producedEventEN.bytes.lo);
+                        opc = OPC_ACOF;
                     }
-                } 
+                }
+                sendMessage4(opc, producedEventNN.bytes.hi, producedEventNN.bytes.lo, producedEventEN.bytes.hi, producedEventEN.bytes.lo);
                 producerDiagnostics[PRODUCER_DIAG_NUMPRODUCED].asUint++;
                 return TRUE;
 #ifndef EVENT_HASH_TABLE

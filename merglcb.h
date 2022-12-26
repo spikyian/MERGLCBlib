@@ -643,4 +643,10 @@ extern ValidTime APP_isSuitableTimeToWriteFlash(void);
  */
 #define MODE_DEFAULT    MODE_UNINITIALISED
 
+/* Event opcs */
+#define     EVENT_SET_MASK   0b10010000
+#define     EVENT_CLR_MASK   0b00000110
+#define     EVENT_ON_MASK    0b00000001
+#define     EVENT_SHORT_MASK 0b00001000
+
 #endif

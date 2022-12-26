@@ -168,15 +168,9 @@ static Processed consumerProcessMessage(Message *m) {
         a = (uint8_t)ev;
         pushAction(a);
     }
-    // TODO flicker LED
-    consumerDiagnostics[CONSUMER_DIAG_NUMCONSUMED].asUint++;
-    return NOT_PROCESSED;
-    
-#else
-    // TODO flicker LED
-    consumerDiagnostics[CONSUMER_DIAG_NUMCONSUMED].asUint++;
-    return NOT_PROCESSED;
 #endif
+    consumerDiagnostics[CONSUMER_DIAG_NUMCONSUMED].asUint++;
+    return NOT_PROCESSED;
 }
 
 

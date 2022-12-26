@@ -90,7 +90,7 @@ uint8_t mode; // operational mode
  * The module's name. The NAME macro should be specified by the application 
  * code in module.h.
  */
-char * name = NAME; // module name
+const char name[] __at(0x848) = NAME; // module name
 // mode transition variables if timeout occurs
 /**
  * The previous mode so it can be restored if a timeout occurs.
@@ -106,7 +106,7 @@ static Word previousNN;
  * NUM_LEDS must be specified by the application in module.h.
  * Each LED has a state here to indicate if it is on/off/flashing etc.
  */
-static LedState    ledState[NUM_LEDS];     // the requested state
+LedState    ledState[NUM_LEDS];     // the requested state
 /**
  * Counters to control on/off period.
  */
@@ -515,7 +515,7 @@ static Processed mnsProcessMessage(Message * m) {
             }
             return PROCESSED;
 /*        case OPC_SQU:   // squelch
-            // TODO     Handle Squelch
+            // TO DO     Handle Squelch - no longer required
             if (m->len < 4) {
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
                 return PROCESSED;
@@ -552,6 +552,7 @@ static void mnsPoll(void) {
             }
         }
     }
+    // Module uptime
     if (tickTimeSince(uptimeTimer) > ONE_SECOND) {
         uptimeTimer.val = tickGet();
         mnsDiagnostics[MNS_DIAGNOSTICS_UPTIMEL].asUint++;
@@ -596,14 +597,28 @@ static void mnsPoll(void) {
             break;
         case SINGLE_FLICKER_ON:
             APP_writeLED2(1);
-            if (flashCounter[1] >= 20) {     // 100ms
+            if (flashCounter[1] >= 25) {     // 250ms
                 flashCounter[1] = 0;
                 setLEDsByMode();
             }
             break;
         case SINGLE_FLICKER_OFF:
             APP_writeLED2(0);
-            if (flashCounter[1] >= 20) {     // 100ms
+            if (flashCounter[1] >= 25) {     // 250ms
+                flashCounter[1] = 0;
+                setLEDsByMode();
+            }
+            break;
+        case LONG_FLICKER_ON:
+            APP_writeLED2(1);
+            if (flashCounter[1] >= 50) {     // 500ms
+                flashCounter[1] = 0;
+                setLEDsByMode();
+            }
+            break;
+        case LONG_FLICKER_OFF:
+            APP_writeLED2(0);
+            if (flashCounter[1] >= 50) {     // 500ms
                 flashCounter[1] = 0;
                 setLEDsByMode();
             }
@@ -635,14 +650,28 @@ static void mnsPoll(void) {
             break;
         case SINGLE_FLICKER_ON:
             APP_writeLED1(1);
-            if (flashCounter[0] >= 20) {     // 100ms
+            if (flashCounter[0] >= 25) {     // 250ms
                 flashCounter[0] = 0;
                 setLEDsByMode();
             }
             break;
         case SINGLE_FLICKER_OFF:
             APP_writeLED1(0);
-            if (flashCounter[0] >= 20) {     // 100ms
+            if (flashCounter[0] >= 25) {     // 250ms
+                flashCounter[0] = 0;
+                setLEDsByMode();
+            }
+            break;
+        case LONG_FLICKER_ON:
+            APP_writeLED1(1);
+            if (flashCounter[0] >= 50) {     // 500ms
+                flashCounter[0] = 0;
+                setLEDsByMode();
+            }
+            break;
+        case LONG_FLICKER_OFF:
+            APP_writeLED1(0);
+            if (flashCounter[0] >= 50) {     // 500ms
                 flashCounter[0] = 0;
                 setLEDsByMode();
             }

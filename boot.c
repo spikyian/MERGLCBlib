@@ -82,7 +82,69 @@ asm("PSECT eeprom_data,class=EEDATA");
 asm("ORG " ___mkstr(EE_TOP));
 asm("db 0");
 
-// TODO create a parameter block at 0x820
+#define PRM_CKSUM1 PARAM_MANU+PARAM_MINOR_VERSION+PARAM_MODULE_ID+PARAM_NUM_EVENTS\
+    +PARAM_NUM_EV_EVENT+PARAM_NUM_NV+PARAM_MAJOR_VERSION+(8)\
+    +P18F26K80+(8)+CPUM_MICROCHIP+PARAM_BUILD_VERSION\
+    +(20)+(0x48)+(0x08)
+
+#ifdef CONSUMED_EVENTS
+#define PRM_CKSUM2      PRM_CKSUM1+1
+#else
+#define PRM_CKSUM2      PRM_CKSUM1
+#endif
+#ifdef PRODUCED_EVENTS
+#define PRM_CKSUM3      PRM_CKSUM2+2
+#else
+#define PRM_CKSUM3      PRM_CKSUM2
+#endif
+#ifdef CANID_ADDRESS
+#define PRM_CKSUM4      PRM_CKSUM3+PB_CAN
+#else
+#define PRM_CKSUM4      PRM_CKSUM3
+#endif
+
+/**
+ * Create the parameter block located at 0x820. This is done entirely by the 
+ * preprocessor.
+ */
+const uint8_t paramBlock[] __at(0x820) = {
+    PARAM_MANU,         //0x820
+    PARAM_MINOR_VERSION,//0x821
+    PARAM_MODULE_ID,    //0x822
+    PARAM_NUM_EVENTS,   //0x823
+    PARAM_NUM_EV_EVENT, //0x824
+    PARAM_NUM_NV,       //0x825
+    PARAM_MAJOR_VERSION,//0x826
+    0x08                // definitely BOOTABLE 
+#ifdef CONSUMED_EVENTS
+            |0x01
+#endif
+#ifdef PRODUCED_EVENTS
+            |0x02
+#endif
+        ,
+    P18F26K80,          //0x828
+#ifdef CANID_ADDRESS
+    PB_CAN,             //0x829 Protocol 1=
+#endif
+    0,8,0,0,            //0x82a load address
+    0,0,0,0,            //0x82e processor code
+    CPUM_MICROCHIP,     //0x832
+    PARAM_BUILD_VERSION,//0x833
+    0,                  //0x834 reserved
+    0,                  //0x835 reserved
+    0,                  //0x836 reserved
+    0,                  //0x837 reserved
+    20,                 //0x838 num parameters lo
+    0,                  //0x839 num parameters hi
+    0x48,               //0x83a address of NAME lo
+    0x08,               //0x83b address of NAME hi
+    0,                  //0x83c address of NAME upper lo
+    0,                  //0x83d address of NAME upper hi
+    ((PRM_CKSUM4)&0xFF),  //0x83e checksum lo
+    ((PRM_CKSUM4)>>8)     //0x83f checksum hi
+};
+
 
 /**
  * Process the bootloader specific messages. The only message which needs to be 

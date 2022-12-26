@@ -34,6 +34,7 @@
  */
 #define _MNS_H_
 #include "merglcb.h"
+#include "module.h"
 /*
  * The MNS service provides the functionality as specified by the MERGLCB 
  * Minimum Node Specification.
@@ -73,9 +74,14 @@ typedef enum {
     ON,             // fixed ON
     FLASH_50_1HZ,   // 50% duty cycle 
     FLASH_50_HALF_HZ,   //
-    SINGLE_FLICKER_OFF,
-    SINGLE_FLICKER_ON
+    SINGLE_FLICKER_OFF, // 250ms pulse
+    SINGLE_FLICKER_ON,  // 250ms pulse
+    LONG_FLICKER_OFF,   // 500ms pulse
+    LONG_FLICKER_ON     //500ms pulse
 } LedState;
+
+// other externs
+extern LedState    ledState[NUM_LEDS];
 
 // LED identifiers
 #define GREEN_LED   0

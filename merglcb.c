@@ -220,6 +220,7 @@
 #include "romops.h"
 #include "ticktime.h"
 #include "timedResponse.h"
+#include "mns.h"
 
 
 /*
@@ -496,6 +497,7 @@ static TickValue timedResponseTime;
 extern Processed APP_preProcessMessage(Message * m);
 extern Processed APP_postProcessMessage(Message * m);
 
+
 /////////////////////////////////////////////
 // SERVICE CHECKING FUNCTIONS
 /////////////////////////////////////////////
@@ -620,6 +622,12 @@ void poll(void) {
         if (transport->receiveMessage != NULL) {
             if (transport->receiveMessage(&m)) {
                 if (m.len > 0) {
+#if NUM_LEDS == 1
+                    ledState[0] = SINGLE_FLICKER_OFF;
+#endif
+#if NUM_LEDS == 2
+                    ledState[GREEN_LED] = SINGLE_FLICKER_ON;
+#endif
                     handled = APP_preProcessMessage(&m); // Call App to check for any opcodes to be handled. 
                     if (handled == 0) {
                         for (i=0; i<NUM_SERVICES; i++) {
@@ -636,7 +644,15 @@ void poll(void) {
         }
     }
     if (handled == 0) {     // Call App to check for any opcodes to be handled. 
-        APP_postProcessMessage(&m);
+        handled = APP_postProcessMessage(&m);
+    }
+    if (handled) {
+#if NUM_LEDS == 1
+        ledState[0] = LONG_FLICKER_OFF;
+#endif
+#if NUM_LEDS == 2
+        ledState[GREEN_LED] = LONG_FLICKER_ON;
+#endif
     }
 }
 

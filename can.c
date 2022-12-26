@@ -162,7 +162,7 @@ static const uint8_t canPri[] = {
  * Perform the CAN factory reset. Just set the CANID to the default of 1.
  */
 static void canFactoryReset(void) {
-    canId = 1;
+    canId = CANID_DEFAULT;
     writeNVM(CANID_NVM_TYPE, CANID_ADDRESS, canId);
 }
 
@@ -385,6 +385,9 @@ static DiagnosticVal * canGetDiagnostic(uint8_t index) {
     return &(canDiagnostics[index-1]);
 }
 
+static uint8_t isEvent(uint8_t opc) {
+    return (((opc & EVENT_SET_MASK) == EVENT_SET_MASK) && ((~opc & EVENT_CLR_MASK)== EVENT_CLR_MASK));
+}
 
 /*            TRANSPORT INTERFACE             */
 /**
@@ -394,7 +397,9 @@ static DiagnosticVal * canGetDiagnostic(uint8_t index) {
  * @return SEND_OK if a message was sent, SEND_FAIL if buffer was full
  */
 static SendResult canSendMessage(Message * mp) {
-    // TODO self enum if invalid canid
+#ifdef CONSUMED_EVENTS
+    Message * m;
+#endif
     // first check to see if there are messages waiting in the TX queue
     if (quantity(&txQueue) == 0) {
         if (TXB0CONbits.TXREQ == 0) {
@@ -416,9 +421,31 @@ static SendResult canSendMessage(Message * mp) {
 
             TXB0CONbits.TXREQ = 1;    // Initiate transmission
             canDiagnostics[CAN_DIAG_TX_MESSAGES].asUint++;
-            // If this is an event we are sending then put it onto the rx queue so
-            // we can consume our own events.
-            // TODO CoE
+#ifdef CONSUMED_EVENTS
+                // If this is an event we are sending then put it onto the rx queue so
+                // we can consume our own events.
+            if (isEvent(mp->opc)) {
+                // we can consume our own events.
+                m = getNextWriteMessage(&rxQueue);
+                if (m == NULL) {
+                    canDiagnostics[CAN_DIAG_RX_BUFFER_OVERRUN].asUint++;
+                    if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) {
+                        mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
+                    }
+                } else {
+                    // copy ECAN buffer to message
+                    m->opc = mp->opc;
+                    m->len = mp->len;
+                    m->bytes[0] = mp->bytes[0];
+                    m->bytes[1] = mp->bytes[1];
+                    m->bytes[2] = mp->bytes[2];
+                    m->bytes[3] = mp->bytes[3];
+                    m->bytes[4] = mp->bytes[4];
+                    m->bytes[5] = mp->bytes[5];
+                    m->bytes[6] = mp->bytes[6];
+                }
+            }
+#endif
             return SEND_OK;
         }
     }
@@ -532,6 +559,9 @@ static uint8_t * getBufferPointer(uint8_t b) {
  */
 static void checkTxFifo( void ) {
     Message * mp;
+#ifdef CONSUMED_EVENTS
+    Message * m;
+#endif
 
     TXBnIF = 0;                 // reset the interrupt flag
     if (!TXB0CONbits.TXREQ) {
@@ -554,9 +584,31 @@ static void checkTxFifo( void ) {
             canTransmitFailed = 0;
             TXB0CONbits.TXREQ = 1;    // Initiate transmission
             TXBnIE = 1;  // enable transmit buffer interrupt
-            // If this is an event we are sending then put it onto the rx queue so
-            // we can consume our own events.
-            // TODO CoE
+            canDiagnostics[CAN_DIAG_TX_MESSAGES].asUint++;
+#ifdef CONSUMED_EVENTS
+                // If this is an event we are sending then put it onto the rx queue so
+            if (isEvent(mp->opc)) {
+                // we can consume our own events.
+                m = getNextWriteMessage(&rxQueue);
+                if (m == NULL) {
+                    canDiagnostics[CAN_DIAG_RX_BUFFER_OVERRUN].asUint++;
+                    if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) {
+                        mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
+                    }
+                } else {
+                    // copy ECAN buffer to message
+                    m->opc = mp->opc;
+                    m->len = mp->len;
+                    m->bytes[0] = mp->bytes[0];
+                    m->bytes[1] = mp->bytes[1];
+                    m->bytes[2] = mp->bytes[2];
+                    m->bytes[3] = mp->bytes[3];
+                    m->bytes[4] = mp->bytes[4];
+                    m->bytes[5] = mp->bytes[5];
+                    m->bytes[6] = mp->bytes[6];
+                }
+            }
+#endif
         } else {
             // nothing to send
             canTransmitTimeout.val = 0;
