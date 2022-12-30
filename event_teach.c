@@ -199,7 +199,8 @@ static DiagnosticVal * teachGetDiagnostic(uint8_t code);
 static void clearAllEvents(void);
 Processed checkLen(Message * m, uint8_t needed);
 uint8_t evtIdxToTableIndex(uint8_t evtIdx);
-TimedResponseResult nerdCallback(uint8_t type, const Service * s, uint8_t step);
+TimedResponseResult nerdCallback(uint8_t type, uint8_t serviceIndex, uint8_t step);
+TimedResponseResult reqevCallback(uint8_t type, uint8_t serviceIndex, uint8_t step);
 Boolean validStart(uint8_t tableIndex);
 uint16_t getNN(uint8_t tableIndex);
 uint16_t getEN(uint8_t tableIndex);
@@ -445,7 +446,7 @@ void doNnevn(void) {
  * This sets things up so that timedResponse will do the right stuff.
  */
 void doNerd(void) {
-    startTimedResponse(OPC_NERD, SERVICE_ID_TEACH, nerdCallback);
+    startTimedResponse(TIMED_RESPONSE_NERD, findServiceIndex(SERVICE_ID_TEACH), nerdCallback);
 }
 
 /**
@@ -455,7 +456,7 @@ void doNerd(void) {
  * @param step how far through the processing
  * @return whether to finish or continue processing
  */
-TimedResponseResult nerdCallback(uint8_t type, const Service * s, uint8_t step){
+TimedResponseResult nerdCallback(uint8_t type, uint8_t serviceIndex, uint8_t step){
     Word nodeNumber, eventNumber;
     // The step is used to index through the event table
     if (step >= NUM_EVENTS) {  // finished?
@@ -568,6 +569,7 @@ void doReval(uint8_t enNum, uint8_t evNum) {
         sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, CMDERR_INV_EV_IDX);
         return;
     }
+
     evIndex = evNum-1U;    // Convert from CBUS numbering (starts at 1 for produced action))
     
     // check it is a valid index
@@ -620,20 +622,48 @@ void doReqev(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum) {
         return;
     }
     if (evNum == 0) {
-        evVal = numEv(tableIndex);
+        sendMessage6(OPC_EVANS, nodeNumber>>8, nodeNumber&0xFF, eventNumber>>8, eventNumber&0xFF, 0, numEv(tableIndex));
+        // send all of the EVs
+        // Note this somewhat abuses the type parameter
+        startTimedResponse(tableIndex, findServiceIndex(SERVICE_ID_TEACH), reqevCallback);
+        return;
     } else {
-        evNum--;    // Convert from CBUS numbering (starts at 1 for produced action))
-        evVal = getEv(tableIndex, evNum);
+        evVal = getEv(tableIndex, evNum-1);
     }
     if (evVal < 0) {
         // a negative value is the error code
         sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, (uint8_t)(-evVal));
+        return;
     }
 
     sendMessage6(OPC_EVANS, nn.bytes.hi, nn.bytes.lo, eventNumber>>8, eventNumber&0xFF, evNum, (uint8_t)evVal);
     return;
 }
+/**
+ * The callback to do the REQEV responses.
+ * @param type the type of the timedResponse
+ * @param serviceIndex the service
+ * @param step how far through the processing, considered to be an EV#-1
+ * @return whether to finish or continue processing
+ */
+TimedResponseResult reqevCallback(uint8_t tableIndex, uint8_t serviceIndex, uint8_t step){
+    Word nodeNumber, eventNumber;
 
+    uint8_t nEv = numEv(tableIndex);
+    int16_t ev;
+    // The step is used to index through the event table
+    if (step+1 > nEv) {  // finished?
+        return TIMED_RESPONSE_RESULT_FINISHED;
+    }
+    // if its not free and not a continuation then it is start of an event
+    nodeNumber.word = getNN(tableIndex);
+    eventNumber.word = getEN(tableIndex);
+    ev = getEv(tableIndex, step);
+    if (ev >= 0) {
+        sendMessage6(OPC_EVANS, nodeNumber.bytes.hi, nodeNumber.bytes.lo, eventNumber.bytes.hi, eventNumber.bytes.lo, step+1, (uint8_t)ev);
+    }
+    return TIMED_RESPONSE_RESULT_NEXT;
+}
 
 
 /**
@@ -885,7 +915,7 @@ uint8_t writeEv(uint8_t tableIndex, uint8_t evNum, uint8_t evVal) {
  * Return an EV value for an event.
  * 
  * @param tableIndex the index of the start of an event
- * @param evNum ev number starts at 0 (produced)
+ * @param evNum ev number starts at 0 (Happening)
  * @return the ev value or -error code if error
  */
 int16_t getEv(uint8_t tableIndex, uint8_t evNum) {

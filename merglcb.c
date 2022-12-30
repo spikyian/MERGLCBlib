@@ -32,10 +32,14 @@
   Ian Hogg Nov 2022
  */
 #include <xc.h>
-
 #include "merglcb.h"
 #include "module.h"
-// TODO merge with main.c
+#include "romops.h"
+#include "hardware.h"
+#include "ticktime.h"
+#include "timedResponse.h"
+#include "mns.h"
+
 /** The developer of an application must provide a module.h which has 
  * module/application specific definitions which influence the behaviour of MERGLCB.
  * 
@@ -217,10 +221,6 @@
  * 
  */
 
-#include "romops.h"
-#include "ticktime.h"
-#include "timedResponse.h"
-#include "mns.h"
 
 
 /*
@@ -364,7 +364,7 @@ const Priority priorities[256] = {
             pNORMAL,    // 0x89
             pNORMAL,    // 0x8A
             pNORMAL,    // 0x8B
-    pLOW,   // OPC_SD=0x8C,
+            pNORMAL,    // 0x8C
             pNORMAL,    // 0x8D
     pLOW,   // OPC_NVSETRD=0x8E,
             pNORMAL,    // 0x8F
@@ -396,7 +396,7 @@ const Priority priorities[256] = {
             pNORMAL,    // 0xA9
             pNORMAL,    // 0xAA
     pLOW,   // OPC_HEARTB=0xAB,
-            pNORMAL,    // 0xAC
+    pLOW,   // OPC_SD=0xAC,
             pNORMAL,    // 0xAD
             pNORMAL,    // 0xAE
     pLOW,   // OPC_GRSP=0xAF,
@@ -481,6 +481,68 @@ const Priority priorities[256] = {
            pNORMAL,    // 0xFF
 };
 
+/*
+ * These are some hacks to ensure that the ISRs are located at addresses to
+ * give space for the parameter block.
+ */
+#ifdef __18CXX
+void ISRLow(void);
+void ISRHigh(void);
+
+void high_irq_errata_fix(void);
+
+/*
+ * Interrupt vectors (moved higher when bootloader present)
+ */
+
+// High priority interrupt vector
+
+#ifdef BOOTLOADER_PRESENT
+    #pragma code high_vector=0x808
+#else
+    #pragma code high_vector=0x08
+#endif
+
+
+//void interrupt_at_high_vector(void)
+
+void HIGH_INT_VECT(void)
+{
+    _asm
+        CALL high_irq_errata_fix, 1
+    _endasm
+}
+
+/*
+ * See 18F2480 errata
+ */
+void high_irq_errata_fix(void) {
+    _asm
+        POP
+        GOTO ISRHigh
+    _endasm
+}
+
+// low priority interrupt vector
+
+#ifdef BOOTLOADER_PRESENT
+    #pragma code low_vector=0x818
+#else
+    #pragma code low_vector=0x18
+#endif
+
+void LOW_INT_VECT(void)
+{
+    _asm GOTO ISRLow _endasm
+}
+#endif
+
+#ifdef BOOTLOADER_PRESENT
+// ensure that the bootflag is zeroed
+#pragma romdata BOOTFLAG
+uint8_t eeBootFlag = 0;
+#endif
+
 
 /**
  * The module's transport interface.
@@ -496,6 +558,10 @@ static TickValue timedResponseTime;
 /** APP externs */
 extern Processed APP_preProcessMessage(Message * m);
 extern Processed APP_postProcessMessage(Message * m);
+
+// forward declarations
+void setup(void);
+void loop(void);
 
 
 /////////////////////////////////////////////
@@ -522,14 +588,14 @@ const Service * findService(uint8_t id) {
  * @param id the service type id
  * @return the index into the services array or -1 if the service is not used by the module.
  */
-int16_t findServiceIndex(uint8_t id) {
+uint8_t findServiceIndex(uint8_t serviceType) {
     uint8_t i;
     for (i=0; i<NUM_SERVICES; i++) {
-        if ((services[i] != NULL) && (services[i]->serviceNo == id)) {
+        if ((services[i] != NULL) && (services[i]->serviceNo == serviceType)) {
             return i;
         }
     }
-    return -1;
+    return SERVICE_ID_NONE;
 }
 
 /**
@@ -694,6 +760,25 @@ void lowIsr(void) {
     }
 }
 
+
+/**
+ * Checks that the required number of message bytes are present.
+ * @param m the message to be checked
+ * @param needed the number of bytes within the message needed including the opc
+ * @return PROCESSED if it is an invalid message and should not be processed further
+ */
+Processed checkLen(Message * m, uint8_t needed) {
+    if (m->len < needed) {
+        if (m->len > 2) {
+            if ((m->bytes[0] == nn.bytes.hi) && (m->bytes[1] == nn.bytes.lo)) {
+                sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, CMDERR_INV_CMD);
+            }
+        }
+        return PROCESSED;
+    }
+    return NOT_PROCESSED;
+}
+
 /////////////////////////////////////////////
 // Message handling functions
 /////////////////////////////////////////////
@@ -818,3 +903,130 @@ void sendMessage(Opcode opc, uint8_t len, uint8_t data1, uint8_t data2, uint8_t 
         }
     }
 }
+
+/**
+ * This is the MERGLCB application start.
+ * Do some initialisation, call the factoryReset() if necessary, call the powerUp()
+ * service routines. Then call the user's setup() before entering the main loop
+ * which calls the user's loop() and service poll().
+ */
+void main(void) {
+    uint8_t i;
+    
+#if defined(_PIC18)
+    RCONbits.IPEN = 1;  // enable interrupt priority
+#endif
+     
+    // init the romops ready for flash writes
+    initRomOps();
+    
+    if (readNVM(NV_NVM_TYPE, NV_ADDRESS) != APP_NVM_VERSION) {
+        factoryReset();
+    }
+    
+    // initialise the services
+    powerUp();
+    
+    // call the application's init 
+    setup();
+    
+    // enable the interrupts and ready to go
+    bothEi();   
+    while(1) {
+        // poll the services as quickly as possible.
+        // up to service to ignore the polls it doesn't need.
+        poll();
+        loop();
+    }
+}
+
+
+// Interrupt service routines 
+#if defined(_18F26K80)
+void __interrupt(high_priority) __section("mainSec") isrHigh() {
+#endif
+#if defined(_18F26K83)
+void __interrupt(high_priority, base(0x0808)) isrHigh() {
+#endif
+
+    highIsr();
+}
+
+/**
+ * Low priority interrupt service handler.
+ */
+#if defined(_18F26K80)
+void __interrupt(low_priority) __section("mainSec") isrLow() {
+#endif
+#if defined(_18F26K83)
+void __interrupt(low_priority, base(0x0808)) isrLow() {
+#endif
+
+    lowIsr();
+}
+
+ 
+// CONFIG1L
+#pragma config RETEN = OFF      // VREG Sleep Enable bit (Ultra low-power regulator is Disabled (Controlled by REGSLP bit))
+#pragma config INTOSCSEL = HIGH // LF-INTOSC Low-power Enable bit (LF-INTOSC in High-power mode during Sleep)
+#pragma config SOSCSEL = DIG    // SOSC Power Selection and mode Configuration bits (Digital (SCLKI) mode)
+#pragma config XINST = OFF      // Extended Instruction Set (Disabled)
+
+// CONFIG1H
+#pragma config FOSC = HS1       // Oscillator (HS oscillator (Medium power, 4 MHz - 16 MHz))
+#pragma config PLLCFG = OFF      // PLL x4 Enable bit (Disabled)
+#pragma config FCMEN = OFF      // Fail-Safe Clock Monitor (Disabled)
+#pragma config IESO = OFF       // Internal External Oscillator Switch Over Mode (Disabled)
+
+// CONFIG2L
+#pragma config PWRTEN = ON      // Power Up Timer (Enabled)
+#pragma config BOREN = SBORDIS      // Brown Out Detect (Disabled in hardware, SBOREN disabled)
+#pragma config BORV = 0         // Brown-out Reset Voltage bits (3.0V)
+#pragma config BORPWR = ZPBORMV // BORMV Power level (ZPBORMV instead of BORMV is selected)
+
+// CONFIG2H
+#pragma config WDTEN = OFF      // Watchdog Timer (WDT disabled in hardware; SWDTEN bit disabled)
+#pragma config WDTPS = 1048576      // Watchdog Postscaler (1:1048576)
+
+// CONFIG3H
+#pragma config CANMX = PORTB    // ECAN Mux bit (ECAN TX and RX pins are located on RB2 and RB3, respectively)
+#pragma config MSSPMSK = MSK7   // MSSP address masking (7 Bit address masking mode)
+#pragma config MCLRE = ON       // Master Clear Enable (MCLR Enabled, RE3 Disabled)
+
+// CONFIG4L
+#pragma config STVREN = ON      // Stack Overflow Reset (Enabled)
+#pragma config BBSIZ = BB1K     // Boot Block Size (1K word Boot Block size)
+
+// CONFIG5L
+#pragma config CP0 = OFF        // Code Protect 00800-01FFF (Disabled)
+#pragma config CP1 = OFF        // Code Protect 02000-03FFF (Disabled)
+#pragma config CP2 = OFF        // Code Protect 04000-05FFF (Disabled)
+#pragma config CP3 = OFF        // Code Protect 06000-07FFF (Disabled)
+
+// CONFIG5H
+#pragma config CPB = OFF        // Code Protect Boot (Disabled)
+#pragma config CPD = OFF        // Data EE Read Protect (Disabled)
+
+// CONFIG6L
+#pragma config WRT0 = OFF       // Table Write Protect 00800-01FFF (Disabled)
+#pragma config WRT1 = OFF       // Table Write Protect 02000-03FFF (Disabled)
+#pragma config WRT2 = OFF       // Table Write Protect 04000-05FFF (Disabled)
+#pragma config WRT3 = OFF       // Table Write Protect 06000-07FFF (Disabled)
+
+// CONFIG6H
+#pragma config WRTC = OFF       // Config. Write Protect (Disabled)
+#pragma config WRTB = OFF       // Table Write Protect Boot (Disabled)
+#pragma config WRTD = OFF       // Data EE Write Protect (Disabled)
+
+// CONFIG7L
+#pragma config EBTR0 = OFF      // Table Read Protect 00800-01FFF (Disabled)
+#pragma config EBTR1 = OFF      // Table Read Protect 02000-03FFF (Disabled)
+#pragma config EBTR2 = OFF      // Table Read Protect 04000-05FFF (Disabled)
+#pragma config EBTR3 = OFF      // Table Read Protect 06000-07FFF (Disabled)
+
+// CONFIG7H
+#pragma config EBTRB = OFF      // Table Read Protect Boot (Disabled)
+
+// #pragma config statements should precede project file includes.
+// Use project enums instead of #define for ON and OFF.
+

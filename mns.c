@@ -138,7 +138,7 @@ static TickValue uptimeTimer;
  * @param step the TimedResponse step
  * @return indication if all the responses have been sent.
  */
-TimedResponseResult mnsTRserviceDiscoveryCallback(uint8_t type, const Service * s, uint8_t step);
+TimedResponseResult mnsTRserviceDiscoveryCallback(uint8_t type, uint8_t serviceIndex, uint8_t step);
 /**
  * Forward declaration for the TimedResponse callback function for sending
  * Diagnostic responses.
@@ -147,7 +147,7 @@ TimedResponseResult mnsTRserviceDiscoveryCallback(uint8_t type, const Service * 
  * @param step the TimedResponse step
  * @return indication if all the responses have been sent.
  */
-TimedResponseResult mnsTRallDiagnosticsCallback(uint8_t type, const Service * s, uint8_t step);
+TimedResponseResult mnsTRallDiagnosticsCallback(uint8_t type, uint8_t serviceIndex, uint8_t step);
 
 /*
  * The Service functions
@@ -198,10 +198,10 @@ static void mnsPowerUp(void) {
     // Set up the LEDs
     APP_setPortDirections();
 #if ((NUM_LEDS == 1) || (NUM_LEDS == 2))
-    flashCounter[0] = 0;
+    flashCounter[GREEN_LED] = 0;
 #endif
 #if NUM_LEDS==2
-    flashCounter[1] = 0;
+    flashCounter[YELLOW_LED] = 0;
 #endif
     ledTimer.val = 0;
     setLEDsByMode();
@@ -227,7 +227,7 @@ static void mnsPowerUp(void) {
 static Processed mnsProcessMessage(Message * m) {
     uint8_t i;
     uint8_t flags;
-    const Service * s;
+    //const Service * s;
     uint8_t newMode;
 
     // Now do the MNS opcodes
@@ -423,27 +423,27 @@ static Processed mnsProcessMessage(Message * m) {
                 // a DGN response for all of the services
                 startTimedResponse(TIMED_RESPONSE_RDGN, SERVICE_ID_ALL, mnsTRallDiagnosticsCallback);
             } else {
-                s = findService(m->bytes[2]);
-                if (s == NULL) {
+                // bytes[2] is a serviceIndex
+                if (m->bytes[2] > NUM_SERVICES) {
                     sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_RDGN, 1, GRSP_INVALID_SERVICE);
                     return PROCESSED;
                 }
-                if (m->bytes[3] == 0) {
-                    // a DGN for all diagnostics for a particular service
-                    startTimedResponse(TIMED_RESPONSE_RDGN, s->serviceNo, mnsTRallDiagnosticsCallback);
-                    return PROCESSED;
-                }
-                if (s->getDiagnostic == NULL) {
+                if (services[m->bytes[2]-1]->getDiagnostic == NULL) {
                     // the service doesn't support diagnostics
                     sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_RDGN, 1, GRSP_INVALID_DIAGNOSTIC);
+                } 
+                if (m->bytes[3] == 0) {
+                    // a DGN for all diagnostics for a particular service
+                    startTimedResponse(TIMED_RESPONSE_RDGN, m->bytes[2], mnsTRallDiagnosticsCallback);
+                    return PROCESSED;
                 } else {
-                    DiagnosticVal * d = s->getDiagnostic(m->bytes[3]);
+                    DiagnosticVal * d = services[m->bytes[2]-1]->getDiagnostic(m->bytes[3]);
                     if (d == NULL) {
                         // the requested diagnostic doesn't exist
                         sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_RDGN, 1, GRSP_INVALID_DIAGNOSTIC);
                     } else {
                         // it was a request for a single diagnostic from a single service
-                        sendMessage6(OPC_DGN, nn.bytes.hi, nn.bytes.lo, s->serviceNo, m->bytes[3],d->asBytes.hi, d->asBytes.lo);
+                        sendMessage6(OPC_DGN, nn.bytes.hi, nn.bytes.lo, m->bytes[2], m->bytes[3],d->asBytes.hi, d->asBytes.lo);
                     }
                 }
             }
@@ -454,20 +454,22 @@ static Processed mnsProcessMessage(Message * m) {
                 return PROCESSED;
             }
             if (m->bytes[2] == 0) {
-                // a SD response for all of the services
+                // start with the number of services
+                sendMessage5(OPC_SD, nn.bytes.hi, nn.bytes.lo, 0, 0, NUM_SERVICES);
+                // now a SD response for all of the services
                 startTimedResponse(TIMED_RESPONSE_RQSD, SERVICE_ID_MNS, mnsTRserviceDiscoveryCallback);
-            } else {
-                // an ESD for the particular service
-                s = findService(m->bytes[2]);
-                if (s == NULL) {
-                    sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_RQSD, SERVICE_ID_MNS, GRSP_INVALID_SERVICE);
-                    return PROCESSED;
-                }
-                if (s->getESDdata == NULL) {
-                    sendMessage7(OPC_ESD, nn.bytes.hi, nn.bytes.lo, s->serviceNo, 0,0,0,0);
+            } else if (m->bytes[2] > NUM_SERVICES) {
+                sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_RQSD, SERVICE_ID_MNS, GRSP_INVALID_SERVICE);
+                return PROCESSED;
+            }else {
+                
+                if (services[m->bytes[2]-1]->getESDdata == NULL) {
+                    sendMessage7(OPC_ESD, nn.bytes.hi, nn.bytes.lo, m->bytes[2], services[m->bytes[2]-1]->serviceNo, 0,0,0);
                 } else {
-                    sendMessage7(OPC_ESD, nn.bytes.hi, nn.bytes.lo, s->serviceNo, 
-                            s->getESDdata(1),s->getESDdata(2),s->getESDdata(3),s->getESDdata(4));
+                    sendMessage7(OPC_ESD, nn.bytes.hi, nn.bytes.lo, m->bytes[2], services[m->bytes[2]-1]->serviceNo, 
+                            services[m->bytes[2]-1]->getESDdata(1),
+                            services[m->bytes[2]-1]->getESDdata(2),
+                            services[m->bytes[2]-1]->getESDdata(3));
                 }
             }
             return PROCESSED;
@@ -535,6 +537,18 @@ static Processed mnsProcessMessage(Message * m) {
 }
 
 /**
+ * 
+ */
+void updateModuleErrorStatus(void) {
+    if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo == 0) {
+        // TODO Heartbeat event ON
+    }
+    if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo < 0xFF) {
+        mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
+    }
+}
+
+/**
  * Called regularly, processing for LED flashing and mode state transition 
  * timeouts.
  */
@@ -549,6 +563,9 @@ static void mnsPoll(void) {
             heartbeatTimer.val = tickGet();
             if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo > 0) {
                 mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo--;
+                if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo == 0) {
+                    // TODO Heartbeat event OFF
+                }
             }
         }
     }
@@ -564,10 +581,10 @@ static void mnsPoll(void) {
     // update the actual LEDs based upon their state
     if (tickTimeSince(ledTimer) > TEN_MILI_SECOND) {
 #if ((NUM_LEDS == 1) || (NUM_LEDS == 2))
-        flashCounter[0]++;
+        flashCounter[GREEN_LED]++;
 #endif
 #if NUM_LEDS==2
-        flashCounter[1]++;
+        flashCounter[YELLOW_LED]++;
 #endif
         ledTimer.val = tickGet();
         
@@ -576,50 +593,50 @@ static void mnsPoll(void) {
     switch (ledState[YELLOW_LED]) {
         case ON:
             APP_writeLED2(1);
-            flashCounter[1] = 0;
+            flashCounter[YELLOW_LED] = 0;
             break;
         case OFF:
             APP_writeLED2(0);
-            flashCounter[1] = 0;
+            flashCounter[YELLOW_LED] = 0;
             break;
         case FLASH_50_1HZ:
             // 1Hz (500ms per on or off is a count of 50 
-            APP_writeLED2(flashCounter[1]/50); 
-            if (flashCounter[1] >= 100) {
-                flashCounter[1] = 0;
+            APP_writeLED2(flashCounter[YELLOW_LED]/50); 
+            if (flashCounter[YELLOW_LED] >= 100) {
+                flashCounter[YELLOW_LED] = 0;
             }
             break;
         case FLASH_50_HALF_HZ:
-            APP_writeLED2(flashCounter[1]/100);
-            if (flashCounter[1] >= 200) {
-                flashCounter[1] = 0;
+            APP_writeLED2(flashCounter[YELLOW_LED]/100);
+            if (flashCounter[YELLOW_LED] >= 200) {
+                flashCounter[YELLOW_LED] = 0;
             }
             break;
         case SINGLE_FLICKER_ON:
             APP_writeLED2(1);
-            if (flashCounter[1] >= 25) {     // 250ms
-                flashCounter[1] = 0;
+            if (flashCounter[YELLOW_LED] >= 25) {     // 250ms
+                flashCounter[YELLOW_LED] = 0;
                 setLEDsByMode();
             }
             break;
         case SINGLE_FLICKER_OFF:
             APP_writeLED2(0);
-            if (flashCounter[1] >= 25) {     // 250ms
-                flashCounter[1] = 0;
+            if (flashCounter[YELLOW_LED] >= 25) {     // 250ms
+                flashCounter[YELLOW_LED] = 0;
                 setLEDsByMode();
             }
             break;
         case LONG_FLICKER_ON:
             APP_writeLED2(1);
-            if (flashCounter[1] >= 50) {     // 500ms
-                flashCounter[1] = 0;
+            if (flashCounter[YELLOW_LED] >= 50) {     // 500ms
+                flashCounter[YELLOW_LED] = 0;
                 setLEDsByMode();
             }
             break;
         case LONG_FLICKER_OFF:
             APP_writeLED2(0);
-            if (flashCounter[1] >= 50) {     // 500ms
-                flashCounter[1] = 0;
+            if (flashCounter[YELLOW_LED] >= 50) {     // 500ms
+                flashCounter[YELLOW_LED] = 0;
                 setLEDsByMode();
             }
             break;
@@ -629,50 +646,50 @@ static void mnsPoll(void) {
     switch (ledState[GREEN_LED]) {
         case ON:
             APP_writeLED1(1);
-            flashCounter[0] = 0;
+            flashCounter[GREEN_LED] = 0;
             break;
         case OFF:
             APP_writeLED1(0);
-            flashCounter[0] = 0;
+            flashCounter[GREEN_LED] = 0;
             break;
         case FLASH_50_1HZ:
             // 1Hz (500ms per cycle is a count of 50 
-            APP_writeLED1(flashCounter[0]/50); 
-            if (flashCounter[0] >= 100) {
-                flashCounter[0] = 0;
+            APP_writeLED1(flashCounter[GREEN_LED]/50); 
+            if (flashCounter[GREEN_LED] >= 100) {
+                flashCounter[GREEN_LED] = 0;
             }
             break;
         case FLASH_50_HALF_HZ:
-            APP_writeLED1(flashCounter[0]/100);
-            if (flashCounter[0] >= 200) {
-                flashCounter[0] = 0;
+            APP_writeLED1(flashCounter[GREEN_LED]/100);
+            if (flashCounter[GREEN_LED] >= 200) {
+                flashCounter[GREEN_LED] = 0;
             }
             break;
         case SINGLE_FLICKER_ON:
             APP_writeLED1(1);
-            if (flashCounter[0] >= 25) {     // 250ms
-                flashCounter[0] = 0;
+            if (flashCounter[GREEN_LED] >= 25) {     // 250ms
+                flashCounter[GREEN_LED] = 0;
                 setLEDsByMode();
             }
             break;
         case SINGLE_FLICKER_OFF:
             APP_writeLED1(0);
-            if (flashCounter[0] >= 25) {     // 250ms
-                flashCounter[0] = 0;
+            if (flashCounter[GREEN_LED] >= 25) {     // 250ms
+                flashCounter[GREEN_LED] = 0;
                 setLEDsByMode();
             }
             break;
         case LONG_FLICKER_ON:
             APP_writeLED1(1);
-            if (flashCounter[0] >= 50) {     // 500ms
-                flashCounter[0] = 0;
+            if (flashCounter[GREEN_LED] >= 50) {     // 500ms
+                flashCounter[GREEN_LED] = 0;
                 setLEDsByMode();
             }
             break;
         case LONG_FLICKER_OFF:
             APP_writeLED1(0);
-            if (flashCounter[0] >= 50) {     // 500ms
-                flashCounter[0] = 0;
+            if (flashCounter[GREEN_LED] >= 50) {     // 500ms
+                flashCounter[GREEN_LED] = 0;
                 setLEDsByMode();
             }
             break;
@@ -730,7 +747,7 @@ static void mnsPoll(void) {
             } 
     }
     // Update the LEDs
-    setLEDsByMode();
+    //setLEDsByMode();
 }
 
 /**
@@ -806,12 +823,12 @@ void setLEDsByMode(void) {
  * @param step loops through each service to be discovered
  * @return whether all of the responses have been sent yet.
  */
-TimedResponseResult mnsTRserviceDiscoveryCallback(uint8_t type, const Service * s, uint8_t step) {
+TimedResponseResult mnsTRserviceDiscoveryCallback(uint8_t type, uint8_t serviceIndex, uint8_t step) {
     if (step >= NUM_SERVICES) {
         return TIMED_RESPONSE_RESULT_FINISHED;
     }
 //    if (services[step] != NULL) {
-        sendMessage4(OPC_SD, nn.bytes.hi, nn.bytes.lo, services[step]->serviceNo, services[step]->version);
+        sendMessage5(OPC_SD, nn.bytes.hi, nn.bytes.lo, step+1, services[step]->serviceNo, services[step]->version);
 //    }
     return TIMED_RESPONSE_RESULT_NEXT;
 }
@@ -819,20 +836,20 @@ TimedResponseResult mnsTRserviceDiscoveryCallback(uint8_t type, const Service * 
 /**
  * This is the callback used by the diagnostic responses.
  * @param type always set to TIMED_RESPONSE_RDNG
- * @param s indicates the service requesting the responses
+ * @param serviceIndex indicates the service requesting the responses
  * @param step loops through each of the diagnostics
  * @return whether all of the responses have been sent yet.
  */
-TimedResponseResult mnsTRallDiagnosticsCallback(uint8_t type, const Service * s, uint8_t step) {
-    if (s->getDiagnostic == NULL) {
+TimedResponseResult mnsTRallDiagnosticsCallback(uint8_t type, uint8_t serviceIndex, uint8_t step) {
+    if (services[serviceIndex]->getDiagnostic == NULL) {
         return TIMED_RESPONSE_RESULT_FINISHED;
     }
-    DiagnosticVal * d = s->getDiagnostic(step+1);   // steps start at 0 whereas diagnostics start at 1
+    DiagnosticVal * d = services[serviceIndex]->getDiagnostic(step+1);   // steps start at 0 whereas diagnostics start at 1
     if (d == NULL) {
         // the requested diagnostic doesn't exist
         return TIMED_RESPONSE_RESULT_FINISHED;
     }
     // it was a request for a single diagnostic from a single service
-    sendMessage6(OPC_DGN, nn.bytes.hi, nn.bytes.lo, s->serviceNo, step+1, d->asBytes.hi, d->asBytes.lo);
+    sendMessage6(OPC_DGN, nn.bytes.hi, nn.bytes.lo, services[serviceIndex]->serviceNo, step+1, d->asBytes.hi, d->asBytes.lo);
     return TIMED_RESPONSE_RESULT_NEXT;
 }

@@ -103,7 +103,7 @@ typedef struct {
 typedef enum {
     EVENT_OFF=0,
     EVENT_ON=1
-}EventState;
+} EventState;
 
 
 typedef union

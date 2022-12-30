@@ -429,9 +429,7 @@ static SendResult canSendMessage(Message * mp) {
                 m = getNextWriteMessage(&rxQueue);
                 if (m == NULL) {
                     canDiagnostics[CAN_DIAG_RX_BUFFER_OVERRUN].asUint++;
-                    if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) {
-                        mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
-                    }
+                    updateModuleErrorStatus();
                 } else {
                     // copy ECAN buffer to message
                     m->opc = mp->opc;
@@ -452,7 +450,7 @@ static SendResult canSendMessage(Message * mp) {
     // Add to transmit Queue
     if (push(&txQueue, mp) == QUEUE_FAIL) {
         canDiagnostics[CAN_DIAG_TX_BUFFER_OVERRUN].asUint++;
-        if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
+        updateModuleErrorStatus();
         return SEND_FAILED;
     }
     return SEND_OK;
@@ -592,9 +590,7 @@ static void checkTxFifo( void ) {
                 m = getNextWriteMessage(&rxQueue);
                 if (m == NULL) {
                     canDiagnostics[CAN_DIAG_RX_BUFFER_OVERRUN].asUint++;
-                    if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) {
-                        mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
-                    }
+                    updateModuleErrorStatus();
                 } else {
                     // copy ECAN buffer to message
                     m->opc = mp->opc;
@@ -635,7 +631,7 @@ static void checkCANTimeout(void) {
             TXB0CONbits.TXREQ = 0;  // abort timed out packet
             checkTxFifo();          //  See if another packet is waiting to be sent
             canDiagnostics[CAN_DIAG_TX_ERRORS].asUint++;
-            if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
+            updateModuleErrorStatus();
         }
     }
 }
@@ -651,14 +647,14 @@ static void canTxError(void) {
         canTransmitTimeout.val = 0;
         TXB0CONbits.TXREQ = 0;
         canDiagnostics[CAN_DIAG_LOST_ARRBITARTAION].asUint++;
-        if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
+        updateModuleErrorStatus();
     }
     if (TXB0CONbits.TXERR) {	// bus error
         canTransmitFailed = 1;
         canTransmitTimeout.val = 0;
         TXB0CONbits.TXREQ = 0;
         canDiagnostics[CAN_DIAG_TX_ERRORS].asUint++;
-        if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
+        updateModuleErrorStatus();
     }
     if (canTransmitFailed) {
         checkTxFifo();  // Check to see if more to try and send
@@ -736,7 +732,7 @@ static void canFillRxFifo(void) {
             m = getNextWriteMessage(&rxQueue);
             if (m == NULL) {
                 canDiagnostics[CAN_DIAG_RX_BUFFER_OVERRUN].asUint++;
-                if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
+                updateModuleErrorStatus();
                 // Record and Clear any previous invalid message bit flag.
                 if (IRXIF) {
                     IRXIF = 0;
@@ -803,11 +799,11 @@ static void processEnumeration(void) {
                     } */
                 } else {
                     canDiagnostics[CAN_DIAG_CANID_ENUMS_FAIL].asUint++;
-                    if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
+                    updateModuleErrorStatus();
                 }
             } else {
                 canDiagnostics[CAN_DIAG_CANID_ENUMS_FAIL].asUint++;
-                if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
+                updateModuleErrorStatus();
                 /* if (resultRequired) {
                     doError(CMDERR_INVALID_EVENT);  // seems a strange error code but that's what the spec says...
                 } */

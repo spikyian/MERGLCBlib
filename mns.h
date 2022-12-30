@@ -56,7 +56,6 @@ extern const Service mnsService;
 #define MNS_DIAGNOSTICS_NNCHANGE    0x04    // return number of Node Number changes.
 #define MNS_DIAGNOSTICS_RXMESS      0x05    // return number of received messages acted upon.
 
-extern DiagnosticVal mnsDiagnostics[NUM_MNS_DIAGNOSTICS];
 /**
  * The module's node number.
  */
@@ -65,6 +64,13 @@ extern Word nn;
  * the module's mode.
  */
 extern uint8_t mode;
+
+/**
+ * MNS diagnostics
+ */
+extern DiagnosticVal mnsDiagnostics[NUM_MNS_DIAGNOSTICS];
+
+extern void updateModuleErrorStatus(void);
 
 /**
  * The status of the module's LEDs.

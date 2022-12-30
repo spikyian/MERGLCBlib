@@ -51,11 +51,13 @@ extern "C" {
 // These are the different timed response processes we can do
 // Although considered converting these to an enum eventually decided against
 // it as this would limit reuse.
-#define TIMED_RESPONSE_NONE 0   
 #define TIMED_RESPONSE_SOD  1
 #define TIMED_RESPONSE_NERD 2
 #define TIMED_RESPONSE_RQSD 3
 #define TIMED_RESPONSE_RDGN 4
+#define TIMED_RESPONSE_REQEV 5
+#define TIMED_RESPONSE_NVRD 6
+#define TIMED_RESPONSE_NONE 0xFF // must be an invalid tableIndex so same as NO_INDEX
     
 // The different APP callback responses
 typedef enum {
@@ -81,7 +83,7 @@ extern void initTimedResponse(void);
  * passed then the callback is repeatedly for each service.
  * @param callback the user specific callback function
  */
-extern void startTimedResponse(uint8_t type, uint8_t serviceId, TimedResponseResult (*callback)(uint8_t type, const Service * s, uint8_t step));
+extern void startTimedResponse(uint8_t type, uint8_t serviceIndex, TimedResponseResult (*callback)(uint8_t type, uint8_t si, uint8_t step));
 
 /**
  * Call regularly to call the user's callback function. Handles the call back 

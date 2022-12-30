@@ -65,7 +65,7 @@ static uint8_t timedResponseServiceIndex;
 static uint8_t timedResponseAllServicesFlag;
 static uint8_t timedResponseType;
 static uint8_t timedResponseStep;
-static TimedResponseResult (*timedResponseCallback)(uint8_t type, const Service * s, uint8_t step);
+static TimedResponseResult (*timedResponseCallback)(uint8_t type, uint8_t serviceIndex, uint8_t step);
 
 
 /**
@@ -79,26 +79,24 @@ void initTimedResponse(void) {
  * Request callbacks at a regular rate.
  * 
  * @param type  indicate to the callback function the type of the callback.
- * @param serviceId passed to the user's callback function. If SERVICE_ID_ALL is 
+ * @param serviceId passed to the user's callback function. 1..NUM_SERVICES. If SERVICE_ID_ALL is 
  * passed then the callback is repeatedly for each service.
  * @param callback the user specific callback function
  */
-void startTimedResponse(uint8_t type, uint8_t serviceId, TimedResponseResult (*callback)(uint8_t type, const Service * s, uint8_t step)) {
-    int16_t si;
+void startTimedResponse(uint8_t type, uint8_t serviceIndex, TimedResponseResult (*callback)(uint8_t type, uint8_t si, uint8_t step)) {
     timedResponseType = type;
-    if (serviceId == SERVICE_ID_ALL) {
+    if (serviceIndex == SERVICE_ID_ALL) { 
         // go through all the services
         timedResponseAllServicesFlag = 1;
         timedResponseServiceIndex = 0;
     } else {
         timedResponseAllServicesFlag = 0;
-        si = findServiceIndex(serviceId);
-        if (si < 0) {
+        if ((serviceIndex < 1) || (serviceIndex > NUM_SERVICES)) {
             // if we don't have the requested service then don't do anything
             timedResponseType = TIMED_RESPONSE_NONE;
             return;
         }
-        timedResponseServiceIndex = (uint8_t)si;
+        timedResponseServiceIndex = (uint8_t)serviceIndex-1;
     }
     timedResponseStep = 0;
     timedResponseCallback = callback;
@@ -112,7 +110,7 @@ void pollTimedResponse() {
     TimedResponseResult result;
     
     if (timedResponseType == TIMED_RESPONSE_NONE) {
-        // no timed responses in progross
+        // no timed responses in progress
         return;
     }
     if (timedResponseCallback == NULL) {
@@ -122,7 +120,7 @@ void pollTimedResponse() {
     }
 
     // Now call the callback function
-    result = (*timedResponseCallback)(timedResponseType, services[timedResponseServiceIndex], timedResponseStep);
+    result = (*timedResponseCallback)(timedResponseType, timedResponseServiceIndex, timedResponseStep);
     switch (result) {
         case TIMED_RESPONSE_RESULT_FINISHED:
             // the callback tells us it has finished but lets check if there are other

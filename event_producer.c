@@ -53,6 +53,7 @@
 #include "mns.h"
 
 // Forward function declarations
+static Processed producerProcessMessage(Message *m);
 static DiagnosticVal * producerGetDiagnostic(uint8_t index);
 /*
  * Event Producer service.
@@ -65,7 +66,7 @@ const Service eventProducerService = {
     1,                  // version
     NULL,               // factoryReset
     NULL,               // powerUp
-    NULL,               // processMessage
+    producerProcessMessage,  // processMessage
     NULL,               // poll
     NULL,               // highIsr
     NULL,               // lowIsr
@@ -76,6 +77,55 @@ const Service eventProducerService = {
 static DiagnosticVal producerDiagnostics[NUM_PRODUCER_DIAGNOSTICS];
 
 // TODO AREQ stuff
+static Processed producerProcessMessage(Message *m) {
+    uint8_t index;
+    Happening h;
+    int16_t ev;
+    
+    switch (m->opc) {
+        case OPC_AREQ:
+        case OPC_ASRQ:
+            if (m->len < 5) {
+                sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, CMDERR_INV_CMD);
+                return PROCESSED;
+            }
+            if (m->opc == OPC_AREQ) {
+                index = findEvent((m->bytes[0]<<8)&(m->bytes[1]), (m->bytes[2]<<8)&(m->bytes[3]));
+            } else {
+                index = findEvent(0, (m->bytes[2]<<8)&(m->bytes[3]));
+            }
+            if (index == NO_INDEX) return PROCESSED;
+            // now get the happening
+            ev = getEv(index, 0);
+            if (ev < 0) return PROCESSED;
+#if HAPPENING_SIZE == 1
+            h = (uint8_t)ev;
+#endif
+#if HAPPENING_SIZE == 2
+            h.bytes.hi = (uint8_t)ev;
+            ev = getEv(index, 1);
+            if (ev < 0) return PROCESSED;
+            h.bytes.lo = (uint8_t)ev;
+#endif
+            if (m->opc == OPC_AREQ) {
+                if (APP_GetEventState(h) == EVENT_ON) {
+                    sendMessage4(OPC_ARON, m->bytes[0], m->bytes[1], m->bytes[2], m->bytes[3]);
+                } else {
+                    sendMessage4(OPC_AROF, m->bytes[0], m->bytes[1], m->bytes[2], m->bytes[3]);
+                }
+            } else {
+                if (APP_GetEventState(h) == EVENT_ON) {
+                    sendMessage4(OPC_ARSON, nn.bytes.hi, nn.bytes.lo, m->bytes[2], m->bytes[3]);
+                } else {
+                    sendMessage4(OPC_ARSOF, nn.bytes.hi, nn.bytes.lo, m->bytes[2], m->bytes[3]);
+                }
+            }
+            return PROCESSED;
+        default:
+            break;
+    }
+    return NOT_PROCESSED;
+}
 /**
  * Provide the means to return the diagnostic data.
  * @param index the diagnostic index

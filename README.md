@@ -10,7 +10,7 @@ An MERGLCB module using this library needs to consider the following application
    - Monitoring input pins, 
    - Perform behaviour based upon module NV settings,
    - Save input state according to type of input in RAM
-   - Send events to the transport layer according to behaviour requirements  
+   - Send events to the transport layer according to behaviour requirements
 
 ### Outputs
    - Receive messages from the transport layer or receive actions from the action queue
@@ -39,9 +39,12 @@ An MERGLCB module using this library needs to consider the following application
      - Decide the number of events and number of EVs per event,
      - Define the event EV usage and allocation,
      - Define the memory allocation (type and address) for the EVs,
+ 5. If the module also supports produced events then:
      - If the concept of Happenings is to be used then defined the size of the Happening identifier,
+     - Provide a function to provide the current event state given a Happening
+ 6. If the module also supports consumed events then:
      - If Actions concept is to be used then the size of the Action queue should be defined.
- 5. All modules also need:
+ 7. All modules also need:
      - The address and type of NVM where the module's node number is to be stored,
      - The address and type of NVM where the mode is to be stored,
      - Define the module type name, module ID and version,
@@ -51,6 +54,7 @@ An MERGLCB module using this library needs to consider the following application
 
 ## Other information
    - The module mode is available using the uint8_t mode global variable.
+   - The module's node number is available as Word nn global variable.
    - A module may define a function to process MERGLCB messages before being handled by the library.
    - A module may also define a function to process MERGLCB messages if not handled by the library. 
   

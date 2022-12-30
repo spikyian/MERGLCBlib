@@ -138,7 +138,7 @@ uint8_t write_eeprom(uint16_t index, uint8_t value) {
             break;
         }
         mnsDiagnostics[MNS_DIAGNOSTICS_MEMERRS].asUint++;
-        if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo != 0xFF) mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
+        updateModuleErrorStatus();
     } while (1);
     
     return GRSP_OK;

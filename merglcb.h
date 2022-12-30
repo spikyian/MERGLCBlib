@@ -36,10 +36,12 @@
 
 #include "romops.h"
 
+#define SERVICE_ID_NONE      0xFF
+#define SERVICE_ID_ALL       0
+
 //
-// MERGLCB Service IDs
+// MERGLCB Service Types
 //
-#define SERVICE_ID_ALL      0
 #define SERVICE_ID_MNS      1
 #define SERVICE_ID_NV       2
 #define SERVICE_ID_CAN      3
@@ -256,7 +258,6 @@ typedef enum Opcode {
     OPC_QCVS=0x84,
     OPC_PCVS=0x85,
     OPC_RDGN=0x87,
-    OPC_SD=0x8C,
     OPC_NVSETRD=0x8E,
     OPC_ACON=0x90,
     OPC_ACOF=0x91,
@@ -276,6 +277,7 @@ typedef enum Opcode {
     OPC_EXTC3=0x9F,
     OPC_RDCC4=0xA0,
     OPC_WCVS=0xA2,
+    OPC_SD=0xAC,
     OPC_HEARTB=0xAB,
     OPC_GRSP=0xAF,
     OPC_ACON1=0xB0,
@@ -340,7 +342,63 @@ typedef enum Result {
     RESULT_SUCCESS
 } Result;
 
+/**
+ * The Message structure contains a MERGLCB message. It contain the opcode
+ * any data and the length of the message.
+ * len includes the opc and any bytes.
+ */
+typedef struct Message {
+    uint8_t len;        // message total length including opc
+    Opcode opc;        // The opcode
+    uint8_t bytes[7];   // any data bytes
+} Message;
+
+/**
+ * A 16 bit value which may be accessed either as a uint16 or as a pair of uint8.
+ */
+typedef union Word {
+    struct {
+        uint8_t lo;
+        uint8_t hi;
+    } bytes;
+    uint16_t word;
+} Word;
+
+/**
+ * Diagnostic value which may be accessed either as a uint16, int16 or a pair of
+ * uint8s.
+ * A collection (array) of DiagnosticVals are typically saved by a service and 
+ * one of the values incremented when something of interest happens. 
+ * The DiagnosticVals may then be accessed using the getDiagnostic() Service 
+ * method. The MNS service RDGN opcode allows the diagnostic values to be reported
+ * on the MERGLCB bus.
+ */
+typedef union DiagnosticVal {
+    uint16_t    asUint;
+    int16_t     asInt;
+    struct {
+        uint8_t lo;
+        uint8_t hi;
+    } asBytes;
+} DiagnosticVal;
+
+typedef enum Processed {
+    NOT_PROCESSED=0,
+    PROCESSED=1
+} Processed;
+
 extern const Priority priorities[256];
+
+
+/**
+ * Helper function to check a received message.
+ * 
+ * @param m received message
+ * @param needed number of bytes in message
+ * @return Process if message isn't valid, NOT_PROCESSED if ok
+ */
+extern Processed checkLen(Message * m, uint8_t needed);
+
 
 // Functions to send a MERGLCB message on any defined transport layer
 // XC8 doesn't support function overloading nor varargs
@@ -426,49 +484,6 @@ void sendMessage7(Opcode opc, uint8_t data1, uint8_t data2, uint8_t data3, uint8
  */
 void sendMessage(Opcode opc, uint8_t len, uint8_t data1, uint8_t data2, uint8_t data3, uint8_t data4, uint8_t data5, uint8_t data6, uint8_t data7);
 
-/**
- * The Message structure contains a MERGLCB message. It contain the opcode
- * any data and the length of the message.
- */
-typedef struct Message {
-    uint8_t len;        // message total length including opc
-    Opcode opc;        // The opcode
-    uint8_t bytes[7];   // any data bytes
-} Message;
-
-/**
- * A 16 bit value which may be accessed either as a uint16 or as a pair of uint8.
- */
-typedef union Word {
-    struct {
-        uint8_t lo;
-        uint8_t hi;
-    } bytes;
-    uint16_t word;
-} Word;
-
-/**
- * Diagnostic value which may be accessed either as a uint16, int16 or a pair of
- * uint8s.
- * A collection (array) of DiagnosticVals are typically saved by a service and 
- * one of the values incremented when something of interest happens. 
- * The DiagnosticVals may then be accessed using the getDiagnostic() Service 
- * method. The MNS service RDGN opcode allows the diagnostic values to be reported
- * on the MERGLCB bus.
- */
-typedef union DiagnosticVal {
-    uint16_t    asUint;
-    int16_t     asInt;
-    struct {
-        uint8_t lo;
-        uint8_t hi;
-    } asBytes;
-} DiagnosticVal;
-
-typedef enum Processed {
-    NOT_PROCESSED=0,
-    PROCESSED=1
-} Processed;
 
 /* SERVICE INTERFACE */
 /*******************************************************************************
@@ -522,9 +537,9 @@ extern ServicePresent have(uint8_t id);
 /**
  * Returns the index into the services array of the specified service.
  * @param id the service type identifier
- * @return the array index or -1 if the service is not present
+ * @return the array index or SERVICE_ID_NONE if the service is not present
  */
-extern int16_t findServiceIndex(uint8_t id);
+extern uint8_t findServiceIndex(uint8_t id);
 
 /* Service function declarations */
 /**
@@ -613,10 +628,6 @@ typedef struct Transport {
  * type transports that can then support multiple underlying transports
  */
 extern const Transport * transport;
-
-
-
-
 
 
 

@@ -58,9 +58,8 @@ static void nvFactoryReset(void);
 static void nvPowerUp(void);
 static Processed nvProcessMessage(Message *m);
 static uint8_t nvGetESDdata(uint8_t id);
-TimedResponseResult nvTRnvrdCallback(uint8_t type, const Service * s, uint8_t step);
-
-#define TIMED_RESPONSE_NVRD OPC_NVRD
+TimedResponseResult nvTRnvrdCallback(uint8_t type, uint8_t serviceIndex, uint8_t step);
+static DiagnosticVal * nvGetDiagnostic(uint8_t index);
 
 // service definition
 const Service nvService = {
@@ -73,8 +72,10 @@ const Service nvService = {
     NULL,               // highIsr
     NULL,               // lowIsr
     nvGetESDdata,       // get ESD data
-    NULL                // getDiagnostic
+    nvGetDiagnostic     // getDiagnostic
 };
+
+static DiagnosticVal nvDiagnostics[NUM_NV_DIAGNOSTICS];
 
 /**
  *  nv cache
@@ -101,9 +102,20 @@ static void nvFactoryReset(void) {
  * Upon power up read the NV values from NVM and fill the NV cache.
  */
 static void nvPowerUp(void) {
+    uint8_t i;
+    for (i=0; i<NUM_NV_DIAGNOSTICS; i++) {
+        nvDiagnostics[i].asUint = 0;
+    }
 #ifdef NV_CACHE
     loadNVcahe();
 #endif
+}
+
+static DiagnosticVal * nvGetDiagnostic(uint8_t index) {
+    if ((index<1) || (index>NUM_NV_DIAGNOSTICS)) {
+        return NULL;
+    }
+    return &(nvDiagnostics[index-1]);
 }
 
 
@@ -190,30 +202,35 @@ static Processed nvProcessMessage(Message * m) {
             if (m->len < 4) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, CMDERR_INV_CMD);
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
+                nvDiagnostics[NV_DIAGNOSTICS_NUM_FAIL].asUint++;
                 return PROCESSED;
             }
             valueOrError = getNV(m->bytes[2]);
             if (valueOrError < 0) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, (uint8_t)(-valueOrError));
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, (uint8_t)(-valueOrError));
+                nvDiagnostics[NV_DIAGNOSTICS_NUM_FAIL].asUint++;
                 return PROCESSED;
             }
+            nvDiagnostics[NV_DIAGNOSTICS_NUM_ACCESS].asUint++;
             sendMessage4(OPC_NVANS, nn.bytes.hi, nn.bytes.lo, m->bytes[2], (uint8_t)(valueOrError));
             if (m->bytes[2] == 0) {
                 // a NVANS response for all of the NVs
-                startTimedResponse(TIMED_RESPONSE_NVRD, SERVICE_ID_NV, nvTRnvrdCallback);
+                startTimedResponse(TIMED_RESPONSE_NVRD, findServiceIndex(SERVICE_ID_NV), nvTRnvrdCallback);
             }
             return PROCESSED;
         case OPC_NVSET:
             if (m->len < 5) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, CMDERR_INV_CMD);
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
+                nvDiagnostics[NV_DIAGNOSTICS_NUM_FAIL].asUint++;
                 return PROCESSED;
             }
             valueOrError = setNV(m->bytes[2], m->bytes[3]);
             if (valueOrError >0) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, (uint8_t)(-valueOrError));
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, (uint8_t)(-valueOrError));
+                nvDiagnostics[NV_DIAGNOSTICS_NUM_FAIL].asUint++;
                 return PROCESSED;
             }
             sendMessage2(OPC_WRACK, nn.bytes.hi, nn.bytes.lo);
@@ -223,21 +240,25 @@ static Processed nvProcessMessage(Message * m) {
             if (m->len < 5) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, CMDERR_INV_CMD);
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, CMDERR_INV_CMD);
+                nvDiagnostics[NV_DIAGNOSTICS_NUM_FAIL].asUint++;
                 return PROCESSED;
             }
             valueOrError = setNV(m->bytes[2], m->bytes[3]);
             if (valueOrError >0) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, (uint8_t)(-valueOrError));
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, (uint8_t)(-valueOrError));
+                nvDiagnostics[NV_DIAGNOSTICS_NUM_FAIL].asUint++;
                 return PROCESSED;
             }
             valueOrError = getNV(m->bytes[2]);
             if (valueOrError < 0) {
                 sendMessage3(OPC_CMDERR, nn.bytes.hi, nn.bytes.lo, (uint8_t)(-valueOrError));
                 sendMessage5(OPC_GRSP, nn.bytes.hi, nn.bytes.lo, OPC_NVRD, SERVICE_ID_MNS, (uint8_t)(-valueOrError));
+                nvDiagnostics[NV_DIAGNOSTICS_NUM_FAIL].asUint++;
                 return PROCESSED;
             }
-            sendMessage3(OPC_NVANS, nn.bytes.hi, nn.bytes.lo, (uint8_t)(valueOrError));
+            sendMessage4(OPC_NVANS, nn.bytes.hi, nn.bytes.lo, m->bytes[2], (uint8_t)(valueOrError));
+            nvDiagnostics[NV_DIAGNOSTICS_NUM_ACCESS].asUint++;
             return PROCESSED;
         default:
             return NOT_PROCESSED;   // message not processed
@@ -264,15 +285,16 @@ static uint8_t nvGetESDdata(uint8_t id) {
  * @param step loops through each service to be discovered
  * @return whether all of the responses have been sent yet.
  */
-TimedResponseResult nvTRnvrdCallback(uint8_t type, const Service * s, uint8_t step) {
+TimedResponseResult nvTRnvrdCallback(uint8_t type, uint8_t serviceIndex, uint8_t step) {
     int16_t valueOrError;
-    if (step >= NV_NUM) {
+    if (step > NV_NUM) {
         return TIMED_RESPONSE_RESULT_FINISHED;
     }
-    valueOrError = getNV(step);
+    valueOrError = getNV(step+1);
     if (valueOrError < 0) {
         return TIMED_RESPONSE_RESULT_FINISHED;
     }
-    sendMessage4(OPC_NVANS, nn.bytes.hi, nn.bytes.lo, step, (uint8_t)(valueOrError));
+    sendMessage4(OPC_NVANS, nn.bytes.hi, nn.bytes.lo, step+1, (uint8_t)(valueOrError));
+    nvDiagnostics[NV_DIAGNOSTICS_NUM_ACCESS].asUint++;
     return TIMED_RESPONSE_RESULT_NEXT;
 }

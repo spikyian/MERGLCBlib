@@ -45,5 +45,7 @@ extern uint8_t happening2Event[MAX_HAPPENING+1];
 #define PRODUCER_DIAG_NUMPRODUCED   0
 
 extern Boolean sendProducedEvent(Happening h, EventState state); 
+//AREQ stuff
+extern EventState APP_GetEventState(Happening h);
 
 #endif

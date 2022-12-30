@@ -55,4 +55,10 @@ typedef enum NvValidation {
 } NvValidation;
 extern NvValidation APP_nvValidate(uint8_t index, uint8_t value);
 
+/* The list of the diagnostics supported */
+#define NUM_NV_DIAGNOSTICS 2
+#define NV_DIAGNOSTICS_ALL         0x00    // return a series of DGN messages for each services? supported data.
+#define NV_DIAGNOSTICS_NUM_ACCESS  0x00    // return Global status Byte.
+#define NV_DIAGNOSTICS_NUM_FAIL    0x01    // return uptime upper word.
+
 #endif
