@@ -704,13 +704,13 @@ void poll(void) {
                                 }
                             }
                         }
+                        if (handled == 0) {     // Call App to check for any opcodes to be handled. 
+                            handled = APP_postProcessMessage(&m);
+                        }
                     }
                 }
             }
         }
-    }
-    if (handled == 0) {     // Call App to check for any opcodes to be handled. 
-        handled = APP_postProcessMessage(&m);
     }
     if (handled) {
 #if NUM_LEDS == 1

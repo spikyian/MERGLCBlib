@@ -58,6 +58,11 @@ static void mnsPoll(void);
 static Processed mnsProcessMessage(Message * m);
 static void mnsLowIsr(void);
 static DiagnosticVal * mnsGetDiagnostic(uint8_t index);
+#ifdef PRODUCED_EVENTS
+#include "event_teach.h"
+#include "event_producer.h"
+Boolean sendProducedEvent(Happening happening, EventState onOff);
+#endif
 
 void setLEDsByMode(void);
 
@@ -126,8 +131,9 @@ DiagnosticVal mnsDiagnostics[NUM_MNS_DIAGNOSTICS];
 /* Heartbeat controls */
 static uint8_t heartbeatSequence;
 static TickValue heartbeatTimer;
+static volatile uint8_t sendHeartbeatEventOn;
 
-/* Heartbeat controls */
+/* Uptime controls */
 static TickValue uptimeTimer;
 
 /**
@@ -174,6 +180,7 @@ static void mnsPowerUp(void) {
     int temp;
     uint8_t i;
     
+    sendHeartbeatEventOn = FALSE;
     temp = readNVM(NN_NVM_TYPE, NN_ADDRESS);
     if (temp < 0) {
         nn.bytes.hi = NN_HI_DEFAULT;
@@ -537,12 +544,16 @@ static Processed mnsProcessMessage(Message * m) {
 }
 
 /**
- * 
+ * Update the module status with an error.
+ * This is safe to be called from the CAN send function.
  */
 void updateModuleErrorStatus(void) {
+#ifdef PRODUCED_EVENTS
     if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo == 0) {
-        // TODO Heartbeat event ON
+        // indicate that Heartbeat event ON needs to be sent
+        sendHeartbeatEventOn = TRUE;
     }
+#endif
     if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo < 0xFF) {
         mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo++;
     }
@@ -563,12 +574,22 @@ static void mnsPoll(void) {
             heartbeatTimer.val = tickGet();
             if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo > 0) {
                 mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo--;
+#ifdef PRODUCED_EVENTS
                 if (mnsDiagnostics[MNS_DIAGNOSTICS_STATUS].asBytes.lo == 0) {
-                    // TODO Heartbeat event OFF
+                    // Heartbeat event OFF
+                    sendProducedEvent(HEARTBEAT_HAPPENING, EVENT_OFF);
                 }
+#endif
             }
         }
     }
+    // Heartbeat event On
+    if (sendHeartbeatEventOn) {
+        // Heartbeat event OFF
+        sendProducedEvent(HEARTBEAT_HAPPENING, EVENT_ON);
+        sendHeartbeatEventOn = FALSE;
+    }
+    
     // Module uptime
     if (tickTimeSince(uptimeTimer) > ONE_SECOND) {
         uptimeTimer.val = tickGet();
@@ -746,8 +767,6 @@ static void mnsPoll(void) {
                 }
             } 
     }
-    // Update the LEDs
-    //setLEDsByMode();
 }
 
 /**
