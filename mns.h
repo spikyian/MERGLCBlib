@@ -1,4 +1,7 @@
 #ifndef _MNS_H_
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -29,43 +32,54 @@
 
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
-
-  Ian Hogg Nov 2022
  */
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
+ */ 
 #define _MNS_H_
 #include "merglcb.h"
 #include "module.h"
-/*
- * The MNS service provides the functionality as specified by the MERGLCB 
- * Minimum Node Specification.
- * All MERGLCB modules should implement this service.
+/**
+ *
+ * @file
+ * Implementation of the MERGLCB Minimum Module Service.
+ * @details
+ * MNS provides functionality required by all MERGLCB modules.
+ *
+ * The service definition object is called mnsService.
+ * This is a large service as it handles mode transitions, including setting of 
+ * node number. The module's LEDs and push button are also supported.
+ * Service discovery and Diagnostics are also processed from this service.
  */
 
-/**
+
+/*
  * Expose the service descriptor for MNS.
  */
 extern const Service mnsService;
 
 /* The list of the diagnostics supported */
-#define NUM_MNS_DIAGNOSTICS 6
-#define MNS_DIAGNOSTICS_ALL         0x00    // return a series of DGN messages for each services? supported data.
-#define MNS_DIAGNOSTICS_STATUS      0x00    // return Global status Byte.
-#define MNS_DIAGNOSTICS_UPTIMEH     0x01    // return uptime upper word.
-#define MNS_DIAGNOSTICS_UPTIMEL     0x02    // return uptime lower word.
-#define MNS_DIAGNOSTICS_MEMERRS     0x03    // return memory status.
-#define MNS_DIAGNOSTICS_NNCHANGE    0x04    // return number of Node Number changes.
-#define MNS_DIAGNOSTICS_RXMESS      0x05    // return number of received messages acted upon.
+#define NUM_MNS_DIAGNOSTICS 6   ///< The number of diagnostic values for this service
+#define MNS_DIAGNOSTICS_ALL         0x00    ///< The a series of DGN messages for each services? supported data.
+#define MNS_DIAGNOSTICS_STATUS      0x00    ///< The Global status Byte.
+#define MNS_DIAGNOSTICS_UPTIMEH     0x01    ///< The uptime upper word.
+#define MNS_DIAGNOSTICS_UPTIMEL     0x02    ///< The uptime lower word.
+#define MNS_DIAGNOSTICS_MEMERRS     0x03    ///< The memory status.
+#define MNS_DIAGNOSTICS_NNCHANGE    0x04    ///< The number of Node Number changes.
+#define MNS_DIAGNOSTICS_RXMESS      0x05    ///< The number of received messages acted upon.
 
-/**
+/*
  * The module's node number.
  */
 extern Word nn;
-/**
+/*
  * the module's mode.
  */
 extern uint8_t mode;
 
-/**
+/*
  * MNS diagnostics
  */
 extern DiagnosticVal mnsDiagnostics[NUM_MNS_DIAGNOSTICS];
@@ -76,14 +90,14 @@ extern void updateModuleErrorStatus(void);
  * The status of the module's LEDs.
  */
 typedef enum {
-    OFF,            // fixed OFF
-    ON,             // fixed ON
-    FLASH_50_1HZ,   // 50% duty cycle 
-    FLASH_50_HALF_HZ,   //
-    SINGLE_FLICKER_OFF, // 250ms pulse
-    SINGLE_FLICKER_ON,  // 250ms pulse
-    LONG_FLICKER_OFF,   // 500ms pulse
-    LONG_FLICKER_ON     //500ms pulse
+    OFF,            ///< fixed OFF
+    ON,             ///< fixed ON
+    FLASH_50_1HZ,   ///< 50% duty cycle  1Hz
+    FLASH_50_HALF_HZ,   ///< 50% duty cycle 0.5Hz
+    SINGLE_FLICKER_OFF, ///< 250ms pulse off
+    SINGLE_FLICKER_ON,  ///< 250ms pulse on
+    LONG_FLICKER_OFF,   ///< 500ms pulse off
+    LONG_FLICKER_ON     ///< 500ms pulse on
 } LedState;
 
 // other externs

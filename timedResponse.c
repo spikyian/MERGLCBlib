@@ -1,3 +1,6 @@
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -19,9 +22,6 @@
                                   legally restrict others from doing anything the license permits.
    ** For commercial use, please contact the original copyright holder(s) to agree licensing terms
 **************************************************************************************************************
-	The FLiM routines have no code or definitions that are specific to any
-	module, so they can be used to provide FLiM facilities for any module 
-	using these libraries.
 	
 */ 
 
@@ -30,20 +30,18 @@
 #include "module.h"
 #include "timedResponse.h"
 #include "romops.h"
-/* 
- * File:   timedResponse.c
- * Author: Ian
- *
- * Created on 8 December 2021, 16:19
- * 
- * Updates
- *  Nov 2022      ih    significant updates for MERGLCB and XC8
- * 
- */
+
 /**
+ * @author Ian Hogg  Created 8 December 2021
+ * @author Ian Hogg significant updates for MERGLCB and XC8 Dec 2022
+ * @date Dec 2022
  * 
+ */ 
+/**
+ * @file
  * TimedResponse records that a sequence of MERGLCB messages are to be sent at
  * a slow rate to allow receivers of these messages to process them.
+ * @details
  * startTimedResponse() is to be called to start the transmission. A callback
  * function is provided and that function is called with an incrementing step 
  * value. The function must return a result to indicate that it has finished or 

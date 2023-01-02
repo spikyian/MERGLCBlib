@@ -41,35 +41,16 @@
 /*
  * EVENT TEACH SERVICE
  * 
- * The events are stored in tables in flash (flash is faster to read than EEPROM).
- * Separate tables are used for Produced events and Consumed events since they require 
- * different data and different lookup schemes.
- * The Produced events are looked up by the action that caused them.
- * The Consumed events are looked up by the CBUS event to find the module specific actions
- * to perform. The lookup is done using a hash table to find the index into the event2Actions table.
- * The action2Event and event2Actions tables are stored in Flash whilst the hashtable
- * lookup for the event2Actions table is stored in RAM.
- * 
- * For Produced events the event is taught using the action stored in the EV field of the
- * CBUS message.
- * For Consumed events the actions are taught using the EV field of the CBUS message.
- * Multiple actions can be specified for a Consumed event. This can be used to set up
- * routes with a single event. 
- *
- * The generic FLiM library code handles the teaching (Learn) and unlearning of events
- * and the storage of the events. The application code just needs to process a consumed 
- * event's actions and to produce actions using the application's actions.
  */
-
 extern const Service eventTeachService;
 
 /**
  * Function called before the EV is saved. This allows the application to perform additional
  * behaviour and to validate that the EV is acceptable.
- * @param nodeNumber
- * @param eventNumber
- * @param evNum
- * @param evVal
+ * @param nodeNumber the event's NN
+ * @param eventNumber the event's EN
+ * @param evNum the index of the EVs
+ * @param evVal the EV value
  * @return error number or 0 for success
  */
 extern uint8_t APP_addEvent(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum, uint8_t evVal);

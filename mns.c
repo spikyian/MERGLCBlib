@@ -1,3 +1,6 @@
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -28,12 +31,20 @@
 
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
-
-  Ian Hogg Nov 2022
- */
+*/
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
+ */ 
 
 /**
- * This is the Minimum Node Specification Service.
+ *
+ * @file
+ * Implementation of the MERGLCB Minimum Module Service.
+ * @details
+ * MNS provides functionality required by all MERGLCB modules.
+ *
  * The service definition object is called mnsService.
  * This is a large service as it handles mode transitions, including setting of 
  * node number. The module's LEDs and push button are also supported.

@@ -1,3 +1,6 @@
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -32,8 +35,10 @@
   Ian Hogg Nov 2022
  */
 
-/*
+/**
+ * @file
  * Implementation of the MERGLCB NV service.
+ * @details
  * The service definition object is called nvService.
  *
  * The NV service implements the MERGLCB Node Variable Service. This supports 
@@ -61,7 +66,12 @@ static uint8_t nvGetESDdata(uint8_t id);
 TimedResponseResult nvTRnvrdCallback(uint8_t type, uint8_t serviceIndex, uint8_t step);
 static DiagnosticVal * nvGetDiagnostic(uint8_t index);
 
-// service definition
+/**
+ * The service descriptor for the NV service. The application must include this
+ * descriptor within the const Service * const services[] array and include the
+ * necessary settings within module.h in order to make use of the Node Variable
+ * service.
+ */
 const Service nvService = {
     SERVICE_ID_NV,      // id
     1,                  // version

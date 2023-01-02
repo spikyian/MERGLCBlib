@@ -1,3 +1,6 @@
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -29,10 +32,15 @@
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
 
-  Ian Hogg Nov 2022
+*/
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
  */
 
 /**
+ * @file
  * Implementation of message queues used for receive and transmit buffers.
  */
 #include <xc.h>

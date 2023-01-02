@@ -1,4 +1,7 @@
 #ifndef _ROMOPS_H_
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -29,14 +32,31 @@
 
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
+ */
 
-  Ian Hogg Nov 2022
+/**
+ * @author Original CANACC8 assembler version (c) Mike Bolton
+ * @author Modifications to EEPROM routines and conversion to C18 (c) Andrew Crosland
+ * @author FLASH routines by (c) Chuck Hoelzen
+ * @author Modifications, refinements & combine EEPROM and FLASH into one module (C) Pete Brownlow 2014-2017   software@upsys.co.u
+ * @author Major rewrite  Ian Hogg  
+ * @date Dec 2022
+ * 
  */
-/*
- * Romops provides functions for storing/retrieving data from EEPROM and Flash 
- * memory.
- */
+
 #define _ROMOPS_H_
+
+/**
+ * @file
+ * Non volatile memory functions
+ * @details
+ * Functionality for reading and writing to EEPROM and Flash NVM.
+ * Read and write to EEPROM is straightforward.
+ * Reading from flash is also straightforward but writing to flash is complex. 
+ * This involves needing to erase a block if changing any bit from 0 to 1 and
+ * if changing a single byte the entire block must be read, the byte changed 
+ * and the entire block written back.
+ */
 
 // NVM types
 typedef enum {
@@ -68,12 +88,12 @@ typedef enum ValidTime {
 
 extern void flushFlashBlock(void);
 
-/**
+/*
  * Initialise the Romops functions. Sets the flash buffer as being currently unused. 
  */
 extern void initRomOps(void);
 
-/**
+/*
  * Read a byte from NVM.
  * @param type specify the type of NVM required
  * @param index is the address to be read
@@ -81,7 +101,7 @@ extern void initRomOps(void);
  */
 extern int16_t readNVM(NVMtype type, uint24_t index);
 
-/**
+/*
  * Write a byte to NVM.
  * @param type specify the type of NVM required
  * @param index is the address to be written
@@ -89,5 +109,11 @@ extern int16_t readNVM(NVMtype type, uint24_t index);
  * @return 0 for success or error number
  */
 extern uint8_t writeNVM(NVMtype type, uint24_t index, uint8_t value);
+
+/**
+ * Call back into the application to check if now is a good time to write the flash
+ * as the processor will be suspended for up to 2ms.
+ */
+extern ValidTime APP_isSuitableTimeToWriteFlash(void);
 
 #endif

@@ -1,3 +1,6 @@
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -29,12 +32,18 @@
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
 
-  Ian Hogg Nov 2022
- */
+*/
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
+ */ 
 
-/*
- * Implementation of the MERGLCB CAN service. Uses Controller Area Network to
- * carry MERGLCB messages.
+/**
+ * @file
+ * Implementation of the MERGLCB CAN service. 
+ * @details
+ * Uses Controller Area Network to carry MERGLCB messages.
  * This implementation works with the PIC18 ECAN.
  * The service definition object is called canService.
  * The transport interface is called canTransport.
@@ -79,7 +88,12 @@ static Processed canProcessMessage(Message * m);
 static void canIsr(void);
 static DiagnosticVal * canGetDiagnostic(uint8_t index);
 
-/** The CAN service descriptor. */
+/**
+ * The service descriptor for the CAN service. The application must include this
+ * descriptor within the const Service * const services[] array and include the
+ * necessary settings within module.h in order to make use of the CAN
+ * service.
+ */
 const Service canService = {
     SERVICE_ID_CAN,     // id
     1,                  // version
@@ -97,7 +111,12 @@ const Service canService = {
 static SendResult canSendMessage(Message * mp);
 static MessageReceived canReceiveMessage(Message * m);
 
-/** This CAN service implements a transport interface. */
+/**
+ * The transport descriptor for the CAN service. The application must set
+ * const Transport * transport to the address of the CAN transport descriptor 
+ * thus: transport = &canTransport;
+ * In order to make use of the CAN transport.
+ */
 const Transport canTransport = {
     canSendMessage,
     canReceiveMessage

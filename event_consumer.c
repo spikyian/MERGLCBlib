@@ -1,3 +1,6 @@
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -29,15 +32,21 @@
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
 
-  Ian Hogg Dec 2022
- */
+*/
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
+ */ 
 
 #include <xc.h>
 #include "merglcb.h"
 #include "event_consumer.h"
 #include "event_teach.h"
-/*
- * Event Consumer service.
+/**
+ * @file
+ * Implementation of the MERGLCB Event Consumer service.
+ * @details
  * The service definition object is called eventConsumerService.
  * Process consumed events. Process Long and Short events.
  * Also handles events with data bytes if HANDLE_DATA_EVENTS is defined. The data is ignored.
@@ -46,15 +55,17 @@
  */
 
 static DiagnosticVal consumerDiagnostics[NUM_CONSUMER_DIAGNOSTICS];
-// TODO AREQ stuff
-
 static void consumerPowerUp(void);
 static Processed consumerProcessMessage(Message * m);
 static DiagnosticVal * consumerGetDiagnostic(uint8_t index); 
 Boolean pushAction(Action a);
         
-
-// service definition
+/**
+ * The service descriptor for the eventConsumer service. The application must include this
+ * descriptor within the const Service * const services[] array and include the
+ * necessary settings within module.h in order to make use of the event consumer
+ * service.
+ */
 const Service eventConsumerService = {
     SERVICE_ID_CONSUMER,// id
     1,                  // version
@@ -201,7 +212,10 @@ Boolean pushAction(Action a) {
 
 
 /**
- * Pull the next message from the queue.
+ * Pull the next Action from the queue.
+ * If COMSUMER_EVS_AS_ACTIONS is defined in module.h then the event's EVs will be
+ * treated as Actions and will be pushed onto the Action queue. The application 
+ * should use popAction() to obtain the next Action for processing.
  *
  * @return the next action of NULL if the queue was empty
  */

@@ -1,5 +1,8 @@
 #ifndef _TICKTIME_H_
-/********************************************************************
+/**
+ * @copyright Copyright © 2007-2010 Microchip Technology Inc.  All rights reserved.
+ */
+/* *******************************************************************
 * FileName:		TickTime.h
 * Dependencies: TickTime.h
 * Processor:	PIC18, PIC24F, PIC32, dsPIC30, dsPIC33
@@ -39,7 +42,7 @@
 * NOT LIMITED TO ANY DEFENSE THEREOF), OR OTHER SIMILAR COSTS.
 *
 *********************************************************************
-* File Description:
+* 
 *
 *  This file provides access to all of the time management functions
 *   as well as calculating the timer scaling settings required for
@@ -58,6 +61,18 @@
 *  4.3   Nov 2022     ih        Port to XC8 and updated for needs of MERGLCB 
 *
 ********************************************************************/
+
+/**
+ * @file
+ * This file provides access to all of the time management functions
+ * as well as calculating the timer scaling settings required for
+ * accurate symbol time measurement
+ *
+ * Uses 16bit PIC Timer0. Extends this to 32bit using timerExtension which is 
+ * incremented on timer0 overflow.
+ * Times are stored as TickValue.
+ * 
+ */
 #define _TICKTIME_H_
 /////////////////////////////////////////////////////
 // TickTime
@@ -188,23 +203,23 @@ typedef union _TickValue
 
 // Global routine definitions
 
-/**
+/*
  * Sets up Timer0 to count time.
  * @param priority 0=low priority, high priority otherwise
  */
 void initTicker(uint8_t priority);
-/**
+/*
  * Gets the current tick counter indicating time since power on.
  * @return the value of the timer
  */
 uint32_t tickGet(void);
-/**
+/*
  * The Timer interrupt service routine.
  */
 void tickISR(void);
 
-/************************ VARIABLES ********************************/
-/**
+/* *********************** VARIABLES ********************************/
+/*
  * Timer0 provides a 16bit counter. The timerExtension variables extend 
  * the count to 32bit.
  */

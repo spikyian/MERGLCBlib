@@ -1,4 +1,7 @@
 #ifndef _BOOT_H_
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -29,15 +32,34 @@
 
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
-
-  Ian Hogg Nov 2022
  */
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
+ */ 
 #define _BOOT_H_
 #include "merglcb.h"
 
 /**
- * The service descritor for the BOOT service.
+ * @file
+ * Implementation of the MERGLCB BOOT service, supports the FCU and CBUS (PIC based)
+ * bootloading protocol.
+ * @details
+ * The service definition object is called bootService.
+ * In order to be compatible with the FCU bootloader there are additional
+ * requirements for the parameter block which are actually supported by the MNS.
+ *
+ * Application code packed with the bootloader must be compiled with options:
+ *  - XC8 linker options -> Additional options --CODEOFFSET=0x800 
+ *  - This generates an error ::: warning: (2044) unrecognized option "--CODEOFFSET=0x800"
+ * but this can be ignored as the option works
+ * 
+ * Then the Application project must be made dependent on the Bootloader 
+ * project by adding the Bootloader to project properties->Conf:->Loading
+ * The project hex fill will have the .unified.hex extension.
  */
+
 extern const Service bootService;
 
 #endif

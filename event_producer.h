@@ -1,4 +1,7 @@
 #ifndef _EVENT_PRODUCER_H_
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -29,11 +32,28 @@
 
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
-
-  Ian Hogg Dec 2022
  */
 #include "module.h"
 #define _EVENT_PRODUCER_H_
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
+ */ 
+
+/**
+ * @file
+ * Implementation of the MERGLCB Event Producer service.
+ * @details
+ * Handle the production of events.
+ * If EVENT_HASH_TABLE is defined then an additional lookup table 
+ * uint8_t action2Event[NUM_HAPPENINGS] is used to obtain an Event 
+ * using a Happening stored in the first EVs. This table is also populated using 
+ * rebuildHashTable(). Given a Happening this table can be used to obtain the 
+ * index into the EventTable for the Happening so the Event at that index in the 
+ * EventTable can be transmitted.
+ */
+
 
 extern const Service eventProducerService;
 
@@ -41,11 +61,19 @@ extern const Service eventProducerService;
 extern uint8_t happening2Event[MAX_HAPPENING+1];
 #endif
 
-#define NUM_PRODUCER_DIAGNOSTICS    1
-#define PRODUCER_DIAG_NUMPRODUCED   0
+#define NUM_PRODUCER_DIAGNOSTICS    1   ///< Number of diagnostics for this service
+#define PRODUCER_DIAG_NUMPRODUCED   0   ///< Number of events produced
+
 
 extern Boolean sendProducedEvent(Happening h, EventState state); 
+
 //AREQ stuff
+/**
+ * The application must provide a function to provide the current event state so
+ * that the service can respond to AREQ/ASRQ requests.
+ * @param h the Happening for which the state should be returned
+ * @return the EventState for the specified Happening
+ */
 extern EventState APP_GetEventState(Happening h);
 
 #endif

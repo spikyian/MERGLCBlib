@@ -1,4 +1,8 @@
 #ifndef _EVENT_ACKNOWLEDGE_H_
+#define _EVENT_ACKNOWLEDGE_H_
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -29,10 +33,22 @@
 
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
-
-  Ian Hogg Dec 2022
  */
-#define _EVENT_ACKNOWLEDGE_H_
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
+ */ 
+
+
+/**
+ * @file
+ * Implementation of the MERGLCB EventAcknowledge service.
+ * @details
+ * This service will send a ENACK message if the module has been taught to
+ * consume the received event. The module must be in EVENT ACK mode. 
+ * The service definition object is called eventAckService.
+ */
 
 extern const Service eventAckService;
 

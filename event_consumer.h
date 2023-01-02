@@ -1,4 +1,7 @@
 #ifndef _EVENT_CONSUMER_H_
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -29,18 +32,33 @@
 
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
-
-  Ian Hogg Dec 2022
  */
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
+ */ 
 #define _EVENT_CONSUMER_H_
 
 #include "module.h"
 
+/**
+ * @file
+ * Implementation of the MERGLCB Event Consumer service.
+ * @details
+ * The service definition object is called eventConsumerService.
+ * Process consumed events. Processes Long and Short events.
+ * Also handles events with data bytes if HANDLE_DATA_EVENTS is defined within 
+ * module.h although the data is ignored.
+ * If COMSUMER_EVS_AS_ACTIONS is defined then EVs after the Happening are treated
+ * as Actions and are added to an Action queue to be processed by the application.
+ */ 
+
 
 extern const Service eventConsumerService;
 
-#define NUM_CONSUMER_DIAGNOSTICS    1
-#define CONSUMER_DIAG_NUMCONSUMED   0
+#define NUM_CONSUMER_DIAGNOSTICS    1   ///< Number of diagnostics
+#define CONSUMER_DIAG_NUMCONSUMED   0   ///< Number of events consumed
 
 #if ACTION_SIZE == 1
 typedef uint8_t Action;

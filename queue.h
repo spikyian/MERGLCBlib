@@ -1,4 +1,7 @@
 #ifndef _QUEUE_H_
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -29,12 +32,18 @@
 
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
-
-  Ian Hogg Nov 2022
+ */
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
  */
 #define _QUEUE_H_
 
-/* BUFFER HANDLING */
+/**
+ * @file
+ * Implementation of message queues used for receive and transmit buffers.
+ */
 
 typedef struct Queue {
     Message * messages;
@@ -48,10 +57,7 @@ typedef enum Qresult {
     QUEUE_SUCCESS=1
 } Qresult;
 
-/**
- * 
- * @return 
- */
+
 uint8_t quantity(Queue * q);
 Qresult push(Queue * q, Message * m);
 Message * pop(Queue * q);

@@ -1,4 +1,7 @@
-/********************************************************************
+/**
+ * @copyright Copyright © 2007-2010 Microchip Technology Inc.  All rights reserved.
+ */
+/*
 * FileName:		TickTime.c
 * Dependencies: TickTime.h
 * Processor:	PIC18, PIC24, PIC32, dsPIC30, dsPIC33
@@ -53,11 +56,24 @@
 *  4.2   15/1/15      pnb       Extracted from MLA as a standalone utility (C18 only at present)
  * 4.3   Nov 2022     ih        Ported to XC8 and modified for use by MERGLCB
 ********************************************************************/
+/**
+ * @author Copyright © 2007-2010 Microchip Technology Inc.  All rights reserved.
+ * @author Copyright © 2015 Pete Brownlow for changes Jan 2015
+ * @author Ported to XC8 by Ian Hogg 23/5/2017
+ * @author Updated for MERGLCB Ian Hogg Nov 2022
+ * @date Nov 2022
+ */
 
+/**
+ * @file
+ * Functions to provide timing.
+ * Uses 16bit PIC Timer0. Extends this to 32bit using timerExtension which is 
+ * incremented on timer0 overflow.
+ * Times are stored as TickValue.
+ * Functions are provided to measure time since a time value was recorded.
+ * 
+ */
 
-///////////////////////////////////////////////////////////
-// TICKTIME
-///////////////////////////////////////////////////////////
 #include <xc.h>
 #include "ticktime.h"
 #include "module.h"

@@ -1,3 +1,6 @@
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -31,6 +34,12 @@
 
  */
 
+/**
+ * @author Pete Brownlow
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
+ */ 
 /*
  *  History for this file:
 	28/12/15	Pete Brownlow	- Factored out from FLiM module
@@ -44,9 +53,7 @@
  *  XC8 compiler
  * 
  * This file used the following PIC peripherals:
- *  * none
- * 
-  Ian Hogg Dec 2022
+ * * none
  */
 #include <xc.h>
 #include "merglcb.h"
@@ -55,9 +62,12 @@
 #include "timedResponse.h"
 #include "event_teach.h"
 
-/*
+/**
+ * @file
+ * Implementation of the MERGLCB Event Teach service.
+ * @details
  * Event teaching service
- * The service definition object is called eventProducerService.
+ * The service definition object is called eventTeachService.
  *
  * The events are stored as a hash table in flash (flash is faster to read than EEPROM)
  * There can be up to 255 events. Since the address in the hash table will be 16 bits, and the
@@ -67,13 +77,14 @@
  * can be shifted to give the address - each event table entry is 16 bytes. After the event
  * number and hash table overhead, this allows up to 10 EVs per event.
  *
- * This generic FLiM code needs no knowledge of specific EV usage except that EV#1 is 
- * to define the Produced events (if the PRODUCED_EVENTS definition is defined).
+ * This generic code needs no knowledge of specific EV usage.
  *
+ * @warning
  * BEWARE must set NUM_EVENTS to a maximum of 255!
  * If set to 256 then the for (uint8_t i=0; i<NUM_EVENTS; i++) loops will never end
  * as they use an uint8_t instead of int for space/performance reasons.
  *
+ * @warning
  * BEWARE Concurrency: The functions which use the eventtable and hash/lookup must not be used
  * whilst there is a chance of the functions which modify the eventtable of RAM based 
  * hash/lookup tables being called. These functions should therefore either be called
@@ -81,11 +92,13 @@
  *
  * define EVENT_HASH_TABLE to use event hash tables for fast access - at the expense of some RAM
  *
- * The code in event.c is responsible for storing EVs for each defined event and 
+ * The code is responsible for storing EVs for each defined event and 
  * also for allowing speedy lookup of EVs given an Event or finding an Event given 
  * a Happening which is stored in the first EVs.
- * 
- * Events are stored in the EventTable which consists of rows containing the following 
+ */
+
+/*
+ *  Events are stored in the EventTable which consists of rows containing the following 
  * fields:
  * * EventTableFlags flags            1 byte
  * * uint8_t next                     1 byte
@@ -135,38 +148,38 @@
  * 4 entries in the table and let's have EVENT_TABLE_WIDTH=4 but have EVperEVT=8.
  * 
  * At the outset there is an empty table. All rows have the 'freeEntry' bit set:
- * 
+ * <pre>
  * index   eVsUsed        continued       forceOwnNN      freeEntry       next    Event   evs[]
  * 0       0              0               0               1               0       0:0     0,0,0,0
  * 1       0              0               0               1               0       0:0     0,0,0,0
  * 2       0              0               0               1               0       0:0     0,0,0,0
  * 3       0              0               0               1               0       0:0     0,0,0,0
- *
+ * </pre>
  * Now if an EV of an event is set (probably using EVLRN CBUS command) then the 
  * table is updated. Let's set EV#1 for event 256:101 to the value 99:
- * 
+ * <pre>
  * index   eVsUsed        continued       forceOwnNN      freeEntry       next    Event   evs[]
  * 0       1              0               0               0               0       256:101 99,0,0,0
  * 1       0              0               0               1               0       0:0     0,0,0,0
  * 2       0              0               0               1               0       0:0     0,0,0,0
  * 3       0              0               0               1               0       0:0     0,0,0,0
- * 
+ * </pre>
  * Now let's set EV#2 of event 256:102 to 15:
- * 
+ * <pre>
  * index   eVsUsed        continued       forceOwnNN      freeEntry       next    Event   evs[]
  * 0       1              0               0               0               0       256:101 99,0,0,0
  * 1       2              0               0               0               0       256:102 0,15,0,0
  * 2       0              0               0               1               0       0:0     0,0,0,0
  * 3       0              0               0               1               0       0:0     0,0,0,0
- * 
+ * </pre>
  * Now let's set EV#8 of event 256:101 to 29:
- * 
+ * <pre>
  * index   eVsUsed        continued       forceOwnNN      freeEntry       next    Event   evs[]
  * 0       1              1               0               0               0       256:101 99,0,0,0
  * 1       2              0               0               0               0       256:102 0,15,0,0
  * 2       4              0               0               0               0       0:0     0,0,0,29
  * 3       0              0               0               1               0       0:0     0,0,0,0
- * 
+ * </pre>
  * To perform the speedy lookup of EVs given an Event a hash table can be used by 
  * defining EVENT_HASH_TABLE. The hash table is stored in 
  * uint8_t eventChains[HASH_LENGTH][CHAIN_LENGTH];
@@ -198,7 +211,7 @@ static uint8_t teachGetESDdata(uint8_t id);
 static DiagnosticVal * teachGetDiagnostic(uint8_t code);
 static void clearAllEvents(void);
 Processed checkLen(Message * m, uint8_t needed);
-uint8_t evtIdxToTableIndex(uint8_t evtIdx);
+static uint8_t evtIdxToTableIndex(uint8_t evtIdx);
 TimedResponseResult nerdCallback(uint8_t type, uint8_t serviceIndex, uint8_t step);
 TimedResponseResult reqevCallback(uint8_t type, uint8_t serviceIndex, uint8_t step);
 Boolean validStart(uint8_t tableIndex);
@@ -206,23 +219,28 @@ uint16_t getNN(uint8_t tableIndex);
 uint16_t getEN(uint8_t tableIndex);
 uint8_t numEv(uint8_t tableIndex);
 int16_t getEv(uint8_t tableIndex, uint8_t evNum);
-uint8_t tableIndexToEvtIdx(uint8_t tableIndex);
+static uint8_t tableIndexToEvtIdx(uint8_t tableIndex);
 uint8_t findEvent(uint16_t nodeNumber, uint16_t eventNumber);
-uint8_t removeTableEntry(uint8_t tableIndex);
+static uint8_t removeTableEntry(uint8_t tableIndex);
 uint8_t writeEv(uint8_t tableIndex, uint8_t evNum, uint8_t evVal);
 uint8_t removeEvent(uint16_t nodeNumber, uint16_t eventNumber);
-void checkRemoveTableEntry(uint8_t tableIndex);
-void doNnclr(void);
-void doNerd(void);
-void doNnevn(void);
-void doRqevn(void);
-void doNenrd(uint8_t index);
-void doReval(uint8_t enNum, uint8_t evNum);
-void doEvuln(uint16_t nodeNumber, uint16_t eventNumber);
-void doReqev(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum);
-void doEvlrn(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum, uint8_t evVal);
+static void checkRemoveTableEntry(uint8_t tableIndex);
+static void doNnclr(void);
+static void doNerd(void);
+static void doNnevn(void);
+static void doRqevn(void);
+static void doNenrd(uint8_t index);
+static void doReval(uint8_t enNum, uint8_t evNum);
+static void doEvuln(uint16_t nodeNumber, uint16_t eventNumber);
+static void doReqev(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum);
+static void doEvlrn(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum, uint8_t evVal);
 
-// service definition
+/**
+ * The service descriptor for the event teach service. The application must include this
+ * descriptor within the const Service * const services[] array and include the
+ * necessary settings within module.h in order to make use of the event teach
+ * service.
+ */
 const Service eventTeachService = {
     SERVICE_ID_TEACH,      // id
     1,                  // version
@@ -426,7 +444,7 @@ static void clearAllEvents(void) {
  * Read number of available event slots.
  * This returned the number of unused slots in the Consumed event Event2Action table.
  */
-void doNnevn(void) {
+static void doNnevn(void) {
     // count the number of unused slots.
     uint8_t count = 0;
     uint8_t i;
@@ -445,7 +463,7 @@ void doNnevn(void) {
  * Do the NERD. 
  * This sets things up so that timedResponse will do the right stuff.
  */
-void doNerd(void) {
+static void doNerd(void) {
     startTimedResponse(TIMED_RESPONSE_NERD, findServiceIndex(SERVICE_ID_TEACH), nerdCallback);
 }
 
@@ -478,7 +496,7 @@ TimedResponseResult nerdCallback(uint8_t type, uint8_t serviceIndex, uint8_t ste
  * 
  * @param index index into event table
  */
-void doNenrd(uint8_t index) {
+static void doNenrd(uint8_t index) {
     uint8_t tableIndex;
     uint16_t nodeNumber, eventNumber;
     
@@ -502,7 +520,7 @@ void doNenrd(uint8_t index) {
  * This returns the number of events which is different to the number of used slots 
  * in the Event table.
  */
-void doRqevn(void) {
+static void doRqevn(void) {
     // Count the number of used slots.
     uint8_t count = 0;
     uint8_t i;
@@ -517,7 +535,7 @@ void doRqevn(void) {
 /**
  * Clear all Events.
  */
-void doNnclr(void) {
+static void doNnclr(void) {
     if (mode == MODE_LEARN) {
         clearAllEvents();
         sendMessage2(OPC_WRACK, nn.bytes.hi, nn.bytes.lo);
@@ -535,7 +553,7 @@ void doNnclr(void) {
  * @param evNum the EV number
  * @param evVal the EV value
  */
-void doEvlrn(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum, uint8_t evVal) {
+static void doEvlrn(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum, uint8_t evVal) {
     uint8_t error;
     // evNum starts at 1 - convert to zero based
     if (evNum == 0) {
@@ -559,7 +577,7 @@ void doEvlrn(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum, uint8_t e
  * @param enNum index into event table
  * @param evNum EV number index
  */
-void doReval(uint8_t enNum, uint8_t evNum) {
+static void doReval(uint8_t enNum, uint8_t evNum) {
 	// Get event index and event variable number from message
 	// Send response with EV value
     uint8_t evIndex;
@@ -598,7 +616,7 @@ void doReval(uint8_t enNum, uint8_t evNum) {
  * @param nodeNumber Event NN
  * @param eventNumber Event EN
  */
-void doEvuln(uint16_t nodeNumber, uint16_t eventNumber) {
+static void doEvuln(uint16_t nodeNumber, uint16_t eventNumber) {
     removeEvent(nodeNumber, eventNumber);
     // Don't send a WRACK
 }
@@ -609,7 +627,7 @@ void doEvuln(uint16_t nodeNumber, uint16_t eventNumber) {
  * @param eventNumber Event EN
  * @param evNum EV number/index
  */
-void doReqev(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum) {
+static void doReqev(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum) {
     int16_t evVal;
     // get the event
     uint8_t tableIndex = findEvent(nodeNumber, eventNumber);
@@ -686,7 +704,7 @@ uint8_t removeEvent(uint16_t nodeNumber, uint16_t eventNumber) {
  * @param tableIndex which event to be cleared
  * @return error or 0 for success
  */
-uint8_t removeTableEntry(uint8_t tableIndex) {
+static uint8_t removeTableEntry(uint8_t tableIndex) {
     EventTableFlags f;
 
 #ifdef SAFETY
@@ -1059,7 +1077,7 @@ uint16_t getEN(uint8_t tableIndex) {
  * @param evtIdx
  * @return an index into EVENT_TABLE_NVM_TYPE, EVENT_TABLE_ADDRESS + EVENTTABLE_ROW_WIDTH*i+EVENTTABLE_OFFSET_
  */
-uint8_t evtIdxToTableIndex(uint8_t evtIdx) {
+static uint8_t evtIdxToTableIndex(uint8_t evtIdx) {
     return evtIdx - 1;
 }
 
@@ -1069,7 +1087,7 @@ uint8_t evtIdxToTableIndex(uint8_t evtIdx) {
  * @param tableIndex index into the EVENT_TABLE_NVM_TYPE, EVENT_TABLE_ADDRESS + EVENTTABLE_ROW_WIDTH*i+EVENTTABLE_OFFSET_
  * @return an CBUS EvtIdx
  */
-uint8_t tableIndexToEvtIdx(uint8_t tableIndex) {
+static uint8_t tableIndexToEvtIdx(uint8_t tableIndex) {
     return tableIndex + 1;
 }
 
@@ -1079,7 +1097,7 @@ uint8_t tableIndexToEvtIdx(uint8_t tableIndex) {
  * 
  * @param tableIndex
  */
-void checkRemoveTableEntry(uint8_t tableIndex) {
+static void checkRemoveTableEntry(uint8_t tableIndex) {
     uint8_t e;
     
     if ( validStart(tableIndex)) {

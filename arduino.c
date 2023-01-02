@@ -1,3 +1,6 @@
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -18,15 +21,18 @@
     No additional restrictions : You may not apply legal terms or technological measures that
                                   legally restrict others from doing anything the license permits.
    ** For commercial use, please contact the original copyright holder(s) to agree licensing terms
-**************************************************************************************************************
-	
- Ian Hogg Dec 2022
-	
-*/ 
+**************************************************************************************************************/
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
+ */ 
 
 /**
- * The functions here emulate some of the common Arduino functions. These may help
- * some developers to feel more comfortable in developing software. 
+ * @file
+ * The functions here emulate some of the common Arduino functions. 
+ * @details 
+ * These may help some developers to feel more comfortable in developing software. 
  */
 
 #include <xc.h>
@@ -37,7 +43,7 @@
 #include "arduino.h"
 
 /* 
- * File:   util.c
+ * File:   Arduino.c
  * Author: Ian
  *
  * Created on 8 December 2022
@@ -144,8 +150,8 @@ void pinMode(uint8_t channel, PinMode mode) {
 /**
  * Write the specified value to the channel pin. Does not check that the channel is
  * configured to be in OUTPUT mode.
- * @param channel
- * @param value
+ * @param channel the channel number
+ * @param value the value to be written to the channel
  */
 void digitalWrite(uint8_t channel, uint8_t value) {
     if (channel < sizeof(configs)/sizeof(Config)) {
@@ -181,7 +187,7 @@ void digitalWrite(uint8_t channel, uint8_t value) {
 /**
  * Read a pin to obtain the current digital input value. Does not check that the
  * channel pin is operating in INPUT mode.
- * @param channel
+ * @param channel the channel number
  * @return the digital value
  */
 uint8_t digitalRead(uint8_t channel) {

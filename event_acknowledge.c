@@ -1,3 +1,6 @@
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -29,8 +32,12 @@
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
 
-  Ian Hogg Dec 2022
- */
+*/
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
+ */ 
 
 #include <xc.h>
 #include "merglcb.h"
@@ -39,15 +46,22 @@
 #include "mns.h"
 
 /**
+ * @file
+ * Implementation of the MERGLCB EventAcknowledge service.
+ * @details
  * This service will send a ENACK message if the module has been taught to
  * consume the received event. The module must be in EVENT ACK mode. 
  * The service definition object is called eventAckService.
  */
-/*
- * Event acknowledge service
- */
+
 static Processed ackEventProcessMessage(Message * m);
-// service definition
+
+/**
+ * The service descriptor for the Event Acknowledge service. The application must include this
+ * descriptor within the const Service * const services[] array and include the
+ * necessary settings within module.h in order to make use of the PIC event acknowledgement
+ * service.
+ */
 const Service eventAckService = {
     SERVICE_ID_EVENTACK,// id
     1,                  // version

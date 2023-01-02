@@ -1,3 +1,6 @@
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -29,10 +32,17 @@
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
 
-  Ian Hogg Dec 2022
- */
+*/
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
+ */ 
 
 /**
+ * @file
+ * Implementation of the MERGLCB Event Produer service.
+ * @details
  * Handle the production of events.
  * If EVENT_HASH_TABLE is defined then an additional lookup table 
  * uint8_t action2Event[NUM_HAPPENINGS] is used to obtain an Event 
@@ -42,9 +52,6 @@
  * EventTable can be transmitted.
  */
 
-/*
- * Event producer service
- */
 #include <xc.h>
 #include "module.h"
 #include "merglcb.h"
@@ -55,12 +62,13 @@
 // Forward function declarations
 static Processed producerProcessMessage(Message *m);
 static DiagnosticVal * producerGetDiagnostic(uint8_t index);
-/*
- * Event Producer service.
- * The service definition object is called eventProducerService.
- * Provides a function to allow the application to send events.
+
+/**
+ * The service descriptor for the event producer service. The application must include this
+ * descriptor within the const Service * const services[] array and include the
+ * necessary settings within module.h in order to make use of the event producer
+ * service.
  */
-// service definition
 const Service eventProducerService = {
     SERVICE_ID_PRODUCER,// id
     1,                  // version
@@ -76,7 +84,6 @@ const Service eventProducerService = {
 
 static DiagnosticVal producerDiagnostics[NUM_PRODUCER_DIAGNOSTICS];
 
-// TODO AREQ stuff
 static Processed producerProcessMessage(Message *m) {
     uint8_t index;
     Happening h;
@@ -142,6 +149,8 @@ static DiagnosticVal * producerGetDiagnostic(uint8_t index) {
  * Get the Produced Event to transmit for the specified action.
  * If the same produced action has been provisioned for more than 1 event
  * only the first provisioned event will be returned.
+ * The Happening is assumed to be in the first one or two EVs depending upon the
+ * HAPPENING_SIZE defined in module.h.
  * 
  * @param happening used to lookup the event to be sent
  * @param onOff TRUE for an ON event, FALSE for an OFF event

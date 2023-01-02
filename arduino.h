@@ -1,4 +1,7 @@
 #ifndef _ARDUINO_H_
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -29,15 +32,28 @@
 
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
-
-  Ian Hogg Dec 2022
  */
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
+ */ 
 #define _ARDUINO_H_
 
 #include <xc.h>
 #include "merglcb.h"
 
- // General purpose pin usage
+/**
+ * @file
+ * The functions here emulate some of the common Arduino functions. 
+ * @details 
+ * These may help some developers to feel more comfortable in developing software. 
+ */
+
+/** 
+ * PIN configs are used to map between the channel number and the physical
+ * PIC ports.
+ */
 typedef struct {
     uint8_t pin;
     char port;

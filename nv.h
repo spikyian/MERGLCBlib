@@ -1,4 +1,7 @@
 #ifndef _NV_H_
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -29,13 +32,21 @@
 
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
-
-  Ian Hogg Nov 2022
  */
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
+ */ 
 #define _NV_H_
 #include "merglcb.h"
 
-/*
+/**
+ * @file
+ * Implementation of the MERGLCB NV service.
+ * @details
+ * The service definition object is called nvService.
+ *
  * The NV service implements the MERGLCB Node Variable Service. This supports 
  * the NVSET, NVRD and NVSETRD opcodes.
  * 
@@ -44,7 +55,7 @@
  * within the application at the expense of additional RAM usage.
  */
 
-/**
+/*
  * Expose the service descriptor for the NV service.
  */
 extern const Service nvService;
@@ -53,12 +64,19 @@ typedef enum NvValidation {
     INVALID=0,
     VALID=1
 } NvValidation;
+
+/**
+ * The module's application must provide a function to validate the value being
+ * written to a NV.
+ * @param index the NV index
+ * @param value the proposed NV value
+ * @return whether the proposed value is acceptable
+ */
 extern NvValidation APP_nvValidate(uint8_t index, uint8_t value);
 
 /* The list of the diagnostics supported */
-#define NUM_NV_DIAGNOSTICS 2
-#define NV_DIAGNOSTICS_ALL         0x00    // return a series of DGN messages for each services? supported data.
-#define NV_DIAGNOSTICS_NUM_ACCESS  0x00    // return Global status Byte.
-#define NV_DIAGNOSTICS_NUM_FAIL    0x01    // return uptime upper word.
+#define NUM_NV_DIAGNOSTICS 2    ///< The number of diagnostics supported by this service
+#define NV_DIAGNOSTICS_NUM_ACCESS  0x00    ///< return Global status Byte.
+#define NV_DIAGNOSTICS_NUM_FAIL    0x01    ///< return uptime upper word.
 
 #endif

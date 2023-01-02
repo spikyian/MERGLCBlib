@@ -36,91 +36,105 @@
 
 #include "romops.h"
 
+/**
+ * @file
+ * Baseline functionality required by MERGLCB and entry points into the application.
+ * @details
+ * The application must provide a void setup(void) function which is called during module
+ * initialisation. The application should perform ant initialisation it requires 
+ * within this function.
+ * 
+ * The application must provide a void loop(void) function which is called 
+ * repeatedly as quickly as possible. The module should perform a check of any
+ * processing needed by the application and perform that processing before returning
+ * to pass control back to MERGLCB.
+ */
+
 #define SERVICE_ID_NONE      0xFF
 #define SERVICE_ID_ALL       0
 
 //
 // MERGLCB Service Types
 //
-#define SERVICE_ID_MNS      1
-#define SERVICE_ID_NV       2
-#define SERVICE_ID_CAN      3
-#define SERVICE_ID_TEACH    4
-#define SERVICE_ID_PRODUCER 5
-#define SERVICE_ID_CONSUMER 6
-#define SERVICE_ID_EVENTACK 9
-#define SERVICE_ID_BOOT     10
+#define SERVICE_ID_MNS      1   ///< The minimum node service. All modules must implement this.
+#define SERVICE_ID_NV       2   ///< The NV service.
+#define SERVICE_ID_CAN      3   ///< The PIC18 ECAN CAN service. Also implements the CAN transport.
+#define SERVICE_ID_TEACH    4   ///< Event teaching service.
+#define SERVICE_ID_PRODUCER 5   ///< Event producer service.
+#define SERVICE_ID_CONSUMER 6   ///< Event comsumer service.
+#define SERVICE_ID_EVENTACK 9   ///< Event acknowledge service. Useful for debugging event configuration.
+#define SERVICE_ID_BOOT     10  ///< FCU/PIC bootloader service.
 
 //
-// MANUFACTURER  - Used in the parameter block. 
+/// MANUFACTURER  - Used in the parameter block. 
 #define MANU_MERG	165
-// MODULE ID    - Used in the parameter block. All MERGLCB modules have the same ID
+/// MODULE ID    - Used in the parameter block. All MERGLCB modules have the same ID
 #define MTYP_MERGLCB    0xFC
 
 //
 // Parameters
 //
-#define PAR_NUM 	0	// Number of parameters
-#define PAR_MANU	1	// Manufacturer id
-#define PAR_MINVER	2	// Minor version letter
-#define PAR_MTYP	3	// Module type code
-#define PAR_EVTNUM	4	// Number of events supported
-#define PAR_EVNUM	5	// Event variables per event
-#define PAR_NVNUM	6	// Number of Node variables
-#define PAR_MAJVER	7	// Major version number
-#define PAR_FLAGS	8	// Node flags
-#define PAR_CPUID	9	// Processor type
-#define PAR_BUSTYPE	10	// Bus type
-#define PAR_LOAD1	11	// load address, 4 bytes
+#define PAR_NUM 	0	///< Number of parameters
+#define PAR_MANU	1	///< Manufacturer id
+#define PAR_MINVER	2	///< Minor version letter
+#define PAR_MTYP	3	///< Module type code
+#define PAR_EVTNUM	4	///< Number of events supported
+#define PAR_EVNUM	5	///< Event variables per event
+#define PAR_NVNUM	6	///< Number of Node variables
+#define PAR_MAJVER	7	///< Major version number
+#define PAR_FLAGS	8	///< Node flags
+#define PAR_CPUID	9	///< Processor type
+#define PAR_BUSTYPE	10	///< Bus type
+#define PAR_LOAD1	11	///< load address, 4 bytes
 #define PAR_LOAD2	12
 #define PAR_LOAD3	13
 #define PAR_LOAD4	14
-#define PAR_CPUMID	15	// CPU manufacturer's id as read from the chip config space, 4 bytes (note - read from cpu at runtime, so not included in checksum)
-#define PAR_CPUMAN	19	// CPU manufacturer code
-#define PAR_BETA	20	// Beta revision (numeric), or 0 if release
+#define PAR_CPUMID	15	///< CPU manufacturer's id as read from the chip config space, 4 bytes (note - read from cpu at runtime, so not included in checksum)
+#define PAR_CPUMAN	19	///< CPU manufacturer code
+#define PAR_BETA	20	///< Beta revision (numeric), or 0 if release
 
 // 
 // BUS type that module is connected to
 // 
-#define PB_CAN	1	// 
-#define PB_ETH	2	// 
-#define PB_MIWI	3	// 
+#define PB_CAN	1	///< CAN interface
+#define PB_ETH	2	///< Etrhernet interface
+#define PB_MIWI	3	///< MIWI interface
 
 // 
 // Error codes for OPC_CMDERR
 // 
-#define CMDERR_INV_CMD          1	// 
-#define CMDERR_NOT_LRN          2	// 
-#define CMDERR_NOT_SETUP        3	// 
-#define CMDERR_TOO_MANY_EVENTS	4	// 
-#define CMDERR_NO_EV            5	// 
-#define CMDERR_INV_EV_IDX       6	// 
-#define CMDERR_INVALID_EVENT	7	// 
-#define CMDERR_INV_EN_IDX       8	// now reserved
-#define CMDERR_INV_PARAM_IDX	9	// 
-#define CMDERR_INV_NV_IDX       10	// 
-#define CMDERR_INV_EV_VALUE     11	// 
-#define CMDERR_INV_NV_VALUE     12	// 
+#define CMDERR_INV_CMD          1	///< Invalid command
+#define CMDERR_NOT_LRN          2	///< Not in learn mode
+#define CMDERR_NOT_SETUP        3	///< Not in setup mode
+#define CMDERR_TOO_MANY_EVENTS	4	///< Too many events
+#define CMDERR_NO_EV            5	///< No EV
+#define CMDERR_INV_EV_IDX       6	///< Invalid EV index
+#define CMDERR_INVALID_EVENT	7	///< Invalid event
+#define CMDERR_INV_EN_IDX       8	///< now reserved
+#define CMDERR_INV_PARAM_IDX	9	///< Invalid param index
+#define CMDERR_INV_NV_IDX       10	///< Invalid NV index
+#define CMDERR_INV_EV_VALUE     11	///< Invalie EV value
+#define CMDERR_INV_NV_VALUE     12	///< Invalid NV value
 
 //
 // GRSP codes
 //
-#define GRSP_OK                 0
-#define GRSP_UNKNOWN_NVM_TYPE   254
-#define GRSP_INVALID_DIAGNOSTIC 253
-#define GRSP_INVALID_SERVICE    252
+#define GRSP_OK                 0   ///< Success
+#define GRSP_UNKNOWN_NVM_TYPE   254 ///< Unknown non valatile memory type
+#define GRSP_INVALID_DIAGNOSTIC 253 ///< Invalid diagnostic
+#define GRSP_INVALID_SERVICE    252 ///< Invalid service
 
 //
 // Modes
 //
-#define MODE_UNINITIALISED      0
-#define MODE_SETUP      1
-#define MODE_NORMAL     2
-#define MODE_LEARN      3
-#define MODE_EVENT_ACK  4
-#define MODE_BOOT       5
-#define MODE_BOOT2      6
-#define MODE_NOHEARTB   7
+#define MODE_UNINITIALISED      0   ///< Uninitialised mode
+#define MODE_SETUP      1   ///< Setup mode
+#define MODE_NORMAL     2   ///< Normal mode
+#define MODE_LEARN      3   ///< Learn mode
+#define MODE_EVENT_ACK  4   ///< Event acknowledgement mode
+#define MODE_BOOT       5   ///< Boot mode for FCU compatible bootloader
+#define MODE_BOOT2      6   ///< Boot mode for MERGLCB boot service
+#define MODE_NOHEARTB   7   ///< No heartbeat mode
 
 // 
 // Processor manufacturer codes
@@ -390,7 +404,7 @@ typedef enum Processed {
 extern const Priority priorities[256];
 
 
-/**
+/*
  * Helper function to check a received message.
  * 
  * @param m received message
@@ -519,7 +533,7 @@ typedef enum ServicePresent {
     NOT_PRESENT=0,
     PRESENT=1
 }ServicePresent; 
-/**
+/*
  * Helper function to obtain a service descriptor given a service type identifier.
  * @param id the service type identifier
  * @return the service descriptor of NULL if the module doesn't support the 
@@ -527,14 +541,14 @@ typedef enum ServicePresent {
  */
 extern const Service * findService(uint8_t id);
 
-/**
+/*
  * Tests whether a module supports the specified service.
  * @param id the service type identifier
  * @return 1 if the service is supported, 0 otherwise
  */
 extern ServicePresent have(uint8_t id);
 
-/**
+/*
  * Returns the index into the services array of the specified service.
  * @param id the service type identifier
  * @return the array index or SERVICE_ID_NONE if the service is not present
@@ -542,7 +556,7 @@ extern ServicePresent have(uint8_t id);
 extern uint8_t findServiceIndex(uint8_t id);
 
 /* Service function declarations */
-/**
+/*
  * Merglcb function to perform necessary factory reset functionality and also
  * call the factoryReset function for each service.
  */
@@ -552,25 +566,25 @@ extern void factoryReset(void);
  * Merglcb function to perform necessary power up functionality and also
  * call the powerUp function for each service.
  */
-extern void powerUp(void);
+//extern void powerUp(void);
 
-/**
+/*
  * Merglcb function to call the processMessage function for each service
  * until one of the services has managed to handle the message.
  * Also calls back to the application to module specific handling.
  */
-extern void processMessage(Message *);
+//extern void processMessage(Message *);
 
-/**
+/*
  * Merglcb function to perform necessary poll functionality and regularly 
  * poll each service.
  * Polling occurs as frequently as possible. It is the responsibility of the
  * service's poll function to ensure that any actions are performed at the 
  * correct rate, for example by using tickTimeSince(lastTime).
  */
-extern void poll(void);
+//extern void poll(void);
 
-/**
+/*
  * Merglcb function to handle high priority interrupts. A service wanting 
  * to use interrupts should enable the interrupts in hardware and then provide 
  * a highIsr function. Care must to taken to ensure that the cause of the 
@@ -578,9 +592,9 @@ extern void poll(void);
  * Isr. It is preferable to set a flag within the Isr and then perform longer
  * processing within poll().
  */
-extern void highIsr(void);
+//extern void highIsr(void);
 
-/**
+/*
  * Merglcb function to handle low priority interrupts. A service wanting 
  * to use interrupts should enable the interrupts in hardware and then provide 
  * a lowIsr function. Care must to taken to ensure that the cause of the 
@@ -588,24 +602,7 @@ extern void highIsr(void);
  * Isr. It is preferable to set a flag within the Isr and then perform longer
  * processing within poll().
  */
-extern void lowIsr(void);
-
-/**
- * Merglcb function to handle low priority interrupts. A service wanting 
- * to use interrupts should enable the interrupts in hardware and then provide 
- * a lowIsr function. Care must to taken to ensure that the cause of the 
- * interrupt is cleared within the Isr and that minimum time is spent in the 
- * Isr. It is preferable to set a flag within the Isr and then perform longer
- * processing within poll().
- */
-
-
-/* TRANSPORT INTERFACE */
-/*******************************************************************************
- * Transport
- * 
- * 
- */
+//extern void lowIsr(void);
 
 typedef enum MessageReceived {
     NOT_RECEIVED=0,
@@ -617,18 +614,24 @@ typedef enum SendResult {
     SEND_OK
 } SendResult;
 
+/* TRANSPORT INTERFACE */
+/**
+ * Transport interface to provide access to a communications bus.
+ * 
+ */
 typedef struct Transport {
     SendResult (* sendMessage)(Message * m);   // function call to send a message
     MessageReceived (* receiveMessage)(Message * m); // check to see if message is available and return in the structure provided
  //   void (* releaseMessage)(Message * m);   // App has finished with message
 } Transport;
-
 /**
+ * The application must set const Transport * transport to the particular transport
+ * interface to be used by the MERGLCBlib.
+ * 
  * MERGLCB supports a single transport. However it does support a bridge or routing
  * type transports that can then support multiple underlying transports
  */
 extern const Transport * transport;
-
 
 
 /**
@@ -636,10 +639,10 @@ extern const Transport * transport;
  * whether it is a suitable time to write to Flash or EEPROM. Writing can suspend
  * the CPU for up to 2ms so this function should return 0 if the application is 
  * about to start time sensitive operations.
- * The merglcb library will busy-wait whilst this function returns 0. The 
+ * The MERGLCB library will busy-wait whilst this function returns 0. The 
  * application must therefore use interrupts to change the conditions returned 
  * by this function. 
- * @return 
+ * @return whether it is a valid time
  */
 extern ValidTime APP_isSuitableTimeToWriteFlash(void);
 

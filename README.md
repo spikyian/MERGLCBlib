@@ -27,24 +27,25 @@ An MERGLCB module using this library needs to consider the following application
 
 ## A module designer needs to:
  1. Determine which services the module will use.
- 2. If the module will use NVs then:
+ 2. Write a modules.h which is used by the MERGLCBlib to control its operation.
+ 3. If the module will use NVs then:
      - Define the NV usage and allocation,
      - Define the memory allocation (type and address) for the NVs,
      - Define the default value (factory reset settings) of the NVs,
      - Determine whether any validation of NV settings is required.
- 3. If the module has a CAN interface:
+ 4. If the module has a CAN interface:
      - Decide where in NVM the CANID is to be stored,
      - Decide how much memory can be used for transmit and receive buffers.
- 4. If the module is to support event teaching:
+ 5. If the module is to support event teaching:
      - Decide the number of events and number of EVs per event,
      - Define the event EV usage and allocation,
      - Define the memory allocation (type and address) for the EVs,
- 5. If the module also supports produced events then:
+ 6. If the module also supports produced events then:
      - If the concept of Happenings is to be used then defined the size of the Happening identifier,
      - Provide a function to provide the current event state given a Happening
- 6. If the module also supports consumed events then:
+ 7. If the module also supports consumed events then:
      - If Actions concept is to be used then the size of the Action queue should be defined.
- 7. All modules also need:
+ 8. All modules also need:
      - The address and type of NVM where the module's node number is to be stored,
      - The address and type of NVM where the mode is to be stored,
      - Define the module type name, module ID and version,

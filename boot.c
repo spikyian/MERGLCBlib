@@ -1,3 +1,6 @@
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -28,9 +31,12 @@
 
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
-
-  Ian Hogg Nov 2022
- */
+*/
+/**
+ * @author Ian Hogg 
+ * @date Dec 2022
+ * 
+ */ 
 #include <xc.h>
 #include "merglcb.h"
 #include "module.h"
@@ -38,30 +44,34 @@
 #include "mns.h"
 #include "romops.h"
 
-/*
- * Implementation of the BOOT service. Supports the FCU and CBUS (PIC based)
+/**
+ * @file
+ * Implementation of the MERGLCB BOOT service, supports the FCU and CBUS (PIC based)
  * bootloading protocol.
+ * @details
  * The service definition object is called bootService.
  * In order to be compatible with the FCU bootloader there are additional
  * requirements for the parameter block which are actually supported by the MNS.
- */
-
-/**************************************************************************
+ *
  * Application code packed with the bootloader must be compiled with options:
- * XC8 linker options -> Additional options --CODEOFFSET=0x800 
- * This generates an error
- * ::: warning: (2044) unrecognized option "--CODEOFFSET=0x800"
+ *  - XC8 linker options -> Additional options --CODEOFFSET=0x800 
+ *  - This generates an error ::: warning: (2044) unrecognized option "--CODEOFFSET=0x800"
  * but this can be ignored as the option works
  * 
  * Then the Application project must be made dependent on the Bootloader 
  * project by adding the Bootloader to project properties->Conf:->Loading
  * The project hex fill will have the .unified.hex extension.
- ***************************************************************************/
+ */
 
 // forward declarations
-Processed bootProcessMessage(Message * m);
+static Processed bootProcessMessage(Message * m);
 
-// service description
+/**
+ * The service descriptor for the BOOT service. The application must include this
+ * descriptor within the const Service * const services[] array and include the
+ * necessary settings within module.h in order to make use of the PIC bootloading
+ * service.
+ */
 const Service bootService = {
     SERVICE_ID_BOOT,    // id
     1,                  // version
@@ -78,8 +88,11 @@ const Service bootService = {
 // Set the EEPROM_BOOT_FLAG to 0 to ensure the application is entered
 // after loading using the PicKit.
 // Bootflag resides at top of EEPROM.
+/** @private */
 asm("PSECT eeprom_data,class=EEDATA");
+/** @private */
 asm("ORG " ___mkstr(EE_TOP));
+/** @private */
 asm("db 0");
 
 #define PRM_CKSUM1 PARAM_MANU+PARAM_MINOR_VERSION+PARAM_MODULE_ID+PARAM_NUM_EVENTS\
@@ -104,6 +117,7 @@ asm("db 0");
 #endif
 
 /**
+ * @private
  * Create the parameter block located at 0x820. This is done entirely by the 
  * preprocessor.
  */
@@ -152,7 +166,7 @@ const uint8_t paramBlock[] __at(0x820) = {
  * @param m the MERGLCB message
  * @return PROCESSED to indicate that the message has been processed, NOT_PROCESSED otherwise
  */
-Processed bootProcessMessage(Message * m) {
+static Processed bootProcessMessage(Message * m) {
     // check NN matches us
     if (m->bytes[0] != nn.bytes.hi) return NOT_PROCESSED;
     if (m->bytes[1] != nn.bytes.lo) return NOT_PROCESSED;

@@ -1,3 +1,6 @@
+/**
+ * @copyright Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+ */
 /*
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -29,16 +32,21 @@
     This software is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
 */
-/*
- Original CANACC8 assembler version (c) Mike Bolton
- Modifications to EEPROM routines and conversion to C18 (c) Andrew Crosland
- FLASH routines by (c) Chuck Hoelzen
- Modifications, refinements & combine EEPROM and FLASH into one module (C) Pete Brownlow 2014-2017   software@upsys.co.u
- Major rewrite  Ian Hogg Nov 2022
+/**
+ * @author Original CANACC8 assembler version (c) Mike Bolton
+ * @author Modifications to EEPROM routines and conversion to C18 (c) Andrew Crosland
+ * @author FLASH routines by (c) Chuck Hoelzen
+ * @author Modifications, refinements & combine EEPROM and FLASH into one module (C) Pete Brownlow 2014-2017   software@upsys.co.u
+ * @author Major rewrite  Ian Hogg  
+ * @date Dec 2022
+ * 
  */
 
-/*
- * NON VOLATILE MEMORY FUNCTIONS
+/**
+ * @file
+ * Non volatile memory functions
+ * @details
+ * Functionality for reading and writing to EEPROM and Flash NVM.
  * Read and write to EEPROM is straightforward.
  * Reading from flash is also straightforward but writing to flash is complex. 
  * This involves needing to erase a block if changing any bit from 0 to 1 and
@@ -72,11 +80,6 @@ static uint24_t    flashBlock;     //address of current 64 byte flash block
 #define OFFSET(A)   (A&(BLOCK_SIZE-1))
 
 
-/**
- * Call back into the application to check if now is a good time to write the flash
- * as the processor will be suspended for up to 2ms.
- */
-extern ValidTime APP_isSuitableTimeToWriteFlash(void);
 
 /**
  * Read EEPROM.  
