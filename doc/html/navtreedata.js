@@ -25,25 +25,18 @@
 var NAVTREE =
 [
   [ "MERGLCBlib", "index.html", [
-    [ "The structure of the library", "index.html#autotoc_md0", null ],
-    [ "Application", "index.html#autotoc_md1", [
-      [ "Application functionality", "index.html#autotoc_md2", [
-        [ "Inputs", "index.html#autotoc_md3", null ],
-        [ "Outputs", "index.html#autotoc_md4", null ],
-        [ "On power on", "index.html#autotoc_md5", null ],
-        [ "Regular poll", "index.html#autotoc_md6", null ]
+    [ "The structure of the library", "index.html#autotoc_md12", null ],
+    [ "Application", "index.html#autotoc_md13", [
+      [ "Application functionality", "index.html#autotoc_md14", [
+        [ "Inputs", "index.html#autotoc_md15", null ],
+        [ "Outputs", "index.html#autotoc_md16", null ],
+        [ "On power on", "index.html#autotoc_md17", null ],
+        [ "Regular poll", "index.html#autotoc_md18", null ]
       ] ],
-      [ "Module design", "index.html#autotoc_md7", null ],
-      [ "Other information", "index.html#autotoc_md8", null ]
-    ] ],
-    [ "Module.h", "index.html#autotoc_md9", [
-      [ "DEFINITIONS FOR MNS SERVICE", "index.html#autotoc_md10", null ],
-      [ "DEFINITIONS FOR NV SERVICE", "index.html#autotoc_md11", null ],
-      [ "DEFINITIONS FOR CAN SERVICE", "index.html#autotoc_md12", null ],
-      [ "DEFINITIONS FOR BOOT SERVICE", "index.html#autotoc_md13", null ],
-      [ "DEFINITIONS FOR EVENT TEACH SERVICE", "index.html#autotoc_md14", null ],
-      [ "DEFINITIONS FOR THE EVENT PRODUCER SERVICE", "index.html#autotoc_md15", null ],
-      [ "DEFINITIONS FOR THE EVENT CONSUMER SERVICE", "index.html#autotoc_md16", null ]
+      [ "Module design", "index.html#autotoc_md19", null ],
+      [ "Other information", "index.html#autotoc_md20", null ],
+      [ "Application source", "index.html#autotoc_md21", null ],
+      [ "Module.h", "index.html#autotoc_md22", null ]
     ] ],
     [ "Data Structures", "annotated.html", [
       [ "Data Structures", "annotated.html", "annotated_dup" ],
@@ -71,9 +64,9 @@ var NAVTREE =
 var NAVTREEINDEX =
 [
 "annotated.html",
-"merglcb_8c.html#a9ee96d4c65458b9529aeaa3de3ab8ab3",
-"merglcb_8h.html#aa368e51d63aecfbefa3bf281b8998880",
-"timed_response_8h.html#a34f3661bc164f76318500bd6a0fafd48ad79cc241c78dde6ebd8c993bea6ec75e"
+"merglcb_8c.html#af44fc8f3b49febc2bdc5e3ea969b7267",
+"merglcb_8h.html#aae21a70035c121d75ba6e48ad6dd2e0e",
+"timed_response_8h.html#aaf97c3097e34c7694427812817dd0976"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';

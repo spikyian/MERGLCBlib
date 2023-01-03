@@ -55,6 +55,28 @@
  * Performs self enumeration and CANID collision detection and re-enumeration.
  * Performs loopback of events for Consumes Own Event behaviour.
  * Collects diagnostic data to aid communications fault finding.
+ * 
+ * # Dependencies on other Services
+ * Although the CAN service does not depend upon any other services all modules
+ * must include the MNS service.
+ * 
+ * # Module.h definitions required for the CAN service
+ * - #define CANID_ADDRESS The address of the CANID. PIC modules normally stored 
+ *                      this at TOP-1.
+ * - #define CANID_NVM_TYPE The type of NVM where to store the CANID. This can be
+ *                      set to be either EEPROM_NVM_TYPE or FLASH_NVM_TYPE. The
+ *                      PIC modules normally have this set to EEPROM_NVM_TYPE.
+ * - #define CAN_INTERRUPT_PRIORITY 0 for low priority, 1 for high priotity
+ * - #define CAN_NUM_RXBUFFERS the number of receive message buffers to be created. A
+ *                      larger number of buffers will reduce the chance of missing
+ *                      messages but will need to be balanced with the amount of 
+ *                      RAM available.
+ * - #define CAN_NUM_TXBUFFERS the number of transmit buffers to be created. Fewer 
+ *                      transmit buffers will be needed then receive buffers, 
+ *                      the timedResponse mechanism means that 4 or fewer buffers
+ *                      should be sufficient.
+ * 
+ * 
  */
 
 extern const Service canService;

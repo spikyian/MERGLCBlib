@@ -121,7 +121,17 @@ Variables</h2></td></tr>
 <li>XC8 linker options -&gt; Additional options &ndash;CODEOFFSET=0x800</li>
 <li>This generates an error ::: warning: (2044) unrecognized option "--CODEOFFSET=0x800" but this can be ignored as the option works</li>
 </ul>
-<p>Then the Application project must be made dependent on the Bootloader project by adding the Bootloader to project properties-&gt;Conf:-&gt;Loading The project hex fill will have the .unified.hex extension. </p>
+<p>Then the Application project must be made dependent on the Bootloader project by adding the Bootloader to project properties-&gt;Conf:-&gt;Loading The project hex fill will have the .unified.hex extension.</p>
+<h1><a class="anchor" id="autotoc_md0"></a>
+Dependencies on other Services</h1>
+<p>Although the Boot service does not depend upon any other services all modules must include the MNS service.</p>
+<h1><a class="anchor" id="autotoc_md1"></a>
+Module.h definitions required for the Boot service</h1>
+<ul>
+<li>#define BOOT_FLAG_ADDRESS This should be set to where the module's bootloader places the bootflag.</li>
+<li>#define BOOT_FLAG_NVM_TYPE This should be set to be the type of NVM where the bootloader stores the boot flag. This can be set to be either EEPROM_NVM_TYPE or FLASH_NVM_TYPE. The PIC modules normally have this set to EEPROM_NVM_TYPE.</li>
+<li>#define BOOTLOADER_PRESENT The module should define, as opposed to undefine, this to indicate that the application should be compiled to start at 0x800 to allow room for the bootloader between 0x000 and 0x7FF. </li>
+</ul>
 </div><h2 class="groupheader">Macro Definition Documentation</h2>
 <a id="a541ffa0eeac0560305207e19445a1d72" name="a541ffa0eeac0560305207e19445a1d72"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a541ffa0eeac0560305207e19445a1d72">&#9670;&#160;</a></span>_BOOT_H_</h2>

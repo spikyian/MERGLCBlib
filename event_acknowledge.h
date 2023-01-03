@@ -48,6 +48,14 @@
  * This service will send a ENACK message if the module has been taught to
  * consume the received event. The module must be in EVENT ACK mode. 
  * The service definition object is called eventAckService.
+ * 
+ * # Dependencies on other Services
+ * The Event Acknowledge service depends upon the Event Consumer service. The Event
+ * Consumer service MUST be included if the Event Acknowledge Service is 
+ * included by the module.
+ * 
+ * # Module.h definitions required for the Event Acknowledge service
+ * none
  */
 
 extern const Service eventAckService;

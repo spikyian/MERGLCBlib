@@ -129,21 +129,21 @@ $(document).ready(function(){initNavTree('event__consumer_8h_source.html',''); i
 <div class="line"><a id="l00042" name="l00042"></a><span class="lineno">   42</span> </div>
 <div class="line"><a id="l00043" name="l00043"></a><span class="lineno">   43</span><span class="preprocessor">#include &quot;module.h&quot;</span></div>
 <div class="line"><a id="l00044" name="l00044"></a><span class="lineno">   44</span> </div>
-<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span><span class="keyword">extern</span> <span class="keyword">const</span> <a class="code hl_struct" href="struct_service.html">Service</a> <a class="code hl_variable" href="event__consumer_8h.html#a00bee6233d82533e4e0bc10911787455">eventConsumerService</a>;</div>
-<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span> </div>
-<div class="line"><a id="l00060" name="l00060"></a><span class="lineno"><a class="line" href="event__consumer_8h.html#a2bfb1da191b649cb74e3e899b8a8765d">   60</a></span><span class="preprocessor">#define NUM_CONSUMER_DIAGNOSTICS    1   </span></div>
-<div class="line"><a id="l00061" name="l00061"></a><span class="lineno"><a class="line" href="event__consumer_8h.html#ae3f7c7a95b07b482db77fcbbcce35f79">   61</a></span><span class="preprocessor">#define CONSUMER_DIAG_NUMCONSUMED   0   </span></div>
-<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span> </div>
-<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span><span class="preprocessor">#if ACTION_SIZE == 1</span></div>
-<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span><span class="keyword">typedef</span> uint8_t Action;</div>
-<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span><span class="preprocessor">#endif</span></div>
-<div class="line"><a id="l00066" name="l00066"></a><span class="lineno">   66</span><span class="preprocessor">#if ACTION_SIZE == 2</span></div>
-<div class="line"><a id="l00067" name="l00067"></a><span class="lineno">   67</span><span class="keyword">typedef</span> <a class="code hl_union" href="union_word.html">Word</a> Action;</div>
-<div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span><span class="preprocessor">#endif</span></div>
-<div class="line"><a id="l00069" name="l00069"></a><span class="lineno">   69</span> </div>
-<div class="line"><a id="l00070" name="l00070"></a><span class="lineno">   70</span><span class="keyword">extern</span> Action * <a class="code hl_function" href="event__consumer_8h.html#af7cb4a49c5a5250e476389807d344125">popAction</a>(<span class="keywordtype">void</span>);</div>
-<div class="line"><a id="l00071" name="l00071"></a><span class="lineno">   71</span> </div>
-<div class="line"><a id="l00072" name="l00072"></a><span class="lineno">   72</span><span class="preprocessor">#endif</span></div>
+<div class="line"><a id="l00079" name="l00079"></a><span class="lineno">   79</span><span class="keyword">extern</span> <span class="keyword">const</span> <a class="code hl_struct" href="struct_service.html">Service</a> <a class="code hl_variable" href="event__consumer_8h.html#a00bee6233d82533e4e0bc10911787455">eventConsumerService</a>;</div>
+<div class="line"><a id="l00080" name="l00080"></a><span class="lineno">   80</span> </div>
+<div class="line"><a id="l00081" name="l00081"></a><span class="lineno"><a class="line" href="event__consumer_8h.html#a2bfb1da191b649cb74e3e899b8a8765d">   81</a></span><span class="preprocessor">#define NUM_CONSUMER_DIAGNOSTICS    1   </span></div>
+<div class="line"><a id="l00082" name="l00082"></a><span class="lineno"><a class="line" href="event__consumer_8h.html#ae3f7c7a95b07b482db77fcbbcce35f79">   82</a></span><span class="preprocessor">#define CONSUMER_DIAG_NUMCONSUMED   0   </span></div>
+<div class="line"><a id="l00083" name="l00083"></a><span class="lineno">   83</span> </div>
+<div class="line"><a id="l00084" name="l00084"></a><span class="lineno">   84</span><span class="preprocessor">#if ACTION_SIZE == 1</span></div>
+<div class="line"><a id="l00085" name="l00085"></a><span class="lineno">   85</span><span class="keyword">typedef</span> uint8_t Action;</div>
+<div class="line"><a id="l00086" name="l00086"></a><span class="lineno">   86</span><span class="preprocessor">#endif</span></div>
+<div class="line"><a id="l00087" name="l00087"></a><span class="lineno">   87</span><span class="preprocessor">#if ACTION_SIZE == 2</span></div>
+<div class="line"><a id="l00088" name="l00088"></a><span class="lineno">   88</span><span class="keyword">typedef</span> <a class="code hl_union" href="union_word.html">Word</a> Action;</div>
+<div class="line"><a id="l00089" name="l00089"></a><span class="lineno">   89</span><span class="preprocessor">#endif</span></div>
+<div class="line"><a id="l00090" name="l00090"></a><span class="lineno">   90</span> </div>
+<div class="line"><a id="l00091" name="l00091"></a><span class="lineno">   91</span><span class="keyword">extern</span> Action * <a class="code hl_function" href="event__consumer_8h.html#af7cb4a49c5a5250e476389807d344125">popAction</a>(<span class="keywordtype">void</span>);</div>
+<div class="line"><a id="l00092" name="l00092"></a><span class="lineno">   92</span> </div>
+<div class="line"><a id="l00093" name="l00093"></a><span class="lineno">   93</span><span class="preprocessor">#endif</span></div>
 <div class="ttc" id="aevent__consumer_8h_html_a00bee6233d82533e4e0bc10911787455"><div class="ttname"><a href="event__consumer_8h.html#a00bee6233d82533e4e0bc10911787455">eventConsumerService</a></div><div class="ttdeci">const Service eventConsumerService</div><div class="ttdoc">The service descriptor for the eventConsumer service.</div><div class="ttdef"><b>Definition:</b> event_consumer.c:69</div></div>
 <div class="ttc" id="aevent__consumer_8h_html_af7cb4a49c5a5250e476389807d344125"><div class="ttname"><a href="event__consumer_8h.html#af7cb4a49c5a5250e476389807d344125">popAction</a></div><div class="ttdeci">Action * popAction(void)</div><div class="ttdoc">Pull the next Action from the queue.</div><div class="ttdef"><b>Definition:</b> event_consumer.c:222</div></div>
 <div class="ttc" id="astruct_service_html"><div class="ttname"><a href="struct_service.html">Service</a></div><div class="ttdoc">This is the service descriptor and the main entry point to a service.</div><div class="ttdef"><b>Definition:</b> merglcb.h:512</div></div>

@@ -58,6 +58,23 @@
  * Then the Application project must be made dependent on the Bootloader 
  * project by adding the Bootloader to project properties->Conf:->Loading
  * The project hex fill will have the .unified.hex extension.
+ * 
+ * # Dependencies on other Services
+ * Although the Boot service does not depend upon any other services all modules
+ * must include the MNS service.
+ * 
+ * # Module.h definitions required for the Boot service
+ * - #define BOOT_FLAG_ADDRESS This should be set to where the module's bootloader
+ *                      places the bootflag.
+ * - #define BOOT_FLAG_NVM_TYPE This should be set to be the type of NVM where the
+ *                      bootloader stores the boot flag. This can be set to be 
+ *                      either EEPROM_NVM_TYPE or FLASH_NVM_TYPE. The PIC
+ *                      modules normally have this set to EEPROM_NVM_TYPE.
+ * - #define BOOTLOADER_PRESENT The module should define, as opposed to undefine, 
+ *                      this to indicate that the application should be 
+ *                      compiled to start at 0x800 to allow room for the bootloader 
+ *                      between 0x000 and 0x7FF.
+ * 
  */
 
 extern const Service bootService;

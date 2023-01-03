@@ -38,8 +38,60 @@
 #include "module.h"
 #include "merglcb.h"
 
-/*
- * EVENT TEACH SERVICE
+/**
+ * @file
+ * Implementation of the MERGLCB Event Teach service.
+ * @details
+ * Event teaching service
+ * The service definition object is called eventTeachService.
+ *
+ * The events are stored as a hash table in flash (flash is faster to read than EEPROM)
+ * There can be up to 255 events. Since the address in the hash table will be 16 bits, and the
+ * address of the whole event table can also be covered by a 16 bit address, there is no
+ * advantage in having a separate hashed index table pointing to the actual event table.
+ * Therefore the hashing algorithm produces the index into the actual event table, which
+ * can be shifted to give the address - each event table entry is 16 bytes. After the event
+ * number and hash table overhead, this allows up to 10 EVs per event.
+ *
+ * This generic code needs no knowledge of specific EV usage.
+ *
+ * @warning
+ * BEWARE must set NUM_EVENTS to a maximum of 255!
+ * If set to 256 then the for (uint8_t i=0; i<NUM_EVENTS; i++) loops will never end
+ * as they use an uint8_t instead of int for space/performance reasons.
+ *
+ * @warning
+ * BEWARE Concurrency: The functions which use the eventtable and hash/lookup must not be used
+ * whilst there is a chance of the functions which modify the eventtable of RAM based 
+ * hash/lookup tables being called. These functions should therefore either be called
+ * from the same thread or disable interrupts. 
+ *
+ * define EVENT_HASH_TABLE to use event hash tables for fast access - at the expense of some RAM
+ *
+ * The code is responsible for storing EVs for each defined event and 
+ * also for allowing speedy lookup of EVs given an Event or finding an Event given 
+ * a Happening which is stored in the first EVs.
+ * 
+ * # Dependencies on other Services
+ * Although the Event Teach service does not depend upon any other services all modules
+ * must include the MNS service.
+ * 
+ * # Module.h definitions required for the Event Teach service
+ * - #define EVENT_TABLE_WIDTH   This the the width of the table - not the 
+ *                       number of EVs per event as multiple rows in
+ *                       the table can be used to store an event.
+ * - #define NUM_EVENTS          The number of rows in the event table. The
+ *                        actual number of events may be less than this
+ *                        if any events use more the 1 row.
+ * - #define EVENT_TABLE_ADDRESS   The address where the event table is stored. 
+ * - #define EVENT_TABLE_NVM_TYPE  Set to be either FLASH_NVM_TYPE or EEPROM_NVM_TYPE
+ * - #define EVENT_HASH_TABLE      If defined then hash tables will be used for
+ *                        quicker lookup of events at the expense of additional RAM.
+ * - #define EVENT_HASH_LENGTH     If hash tables are used then this sets the length
+ *                        of the hash.
+ * - #define EVENT_CHAIN_LENGTH    If hash tables are used then this sets the number
+ *                        of events in the hash chain.
+ * - #define MAX_HAPPENING         Set to be the maximum Happening value
  * 
  */
 extern const Service eventTeachService;

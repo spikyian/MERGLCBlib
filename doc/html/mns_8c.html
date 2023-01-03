@@ -156,7 +156,38 @@ Variables</h2></td></tr>
 <dl class="section author"><dt>Author</dt><dd>Ian Hogg </dd></dl>
 <dl class="section date"><dt>Date</dt><dd>Dec 2022</dd></dl>
 <p>MNS provides functionality required by all MERGLCB modules.</p>
-<p>The service definition object is called mnsService. This is a large service as it handles mode transitions, including setting of node number. The module's LEDs and push button are also supported. <a class="el" href="struct_service.html" title="This is the service descriptor and the main entry point to a service.">Service</a> discovery and Diagnostics are also processed from this service. </p>
+<p>The service definition object is called mnsService. This is a large service as it handles mode transitions, including setting of node number. The module's LEDs and push button are also supported. <a class="el" href="struct_service.html" title="This is the service descriptor and the main entry point to a service.">Service</a> discovery and Diagnostics are also processed from this service.</p>
+<h1><a class="anchor" id="autotoc_md23"></a>
+Dependencies on other Services</h1>
+<p>None.</p>
+<p>MNS is a mandatory service for all MERGLCB modules and is therefore to be included by all module applications.</p>
+<h1><a class="anchor" id="autotoc_md24"></a>
+Module.h definitions required for the MNS service</h1>
+<ul>
+<li>#define NUM_SERVICES to be the number of services implemented by the module. The application must put the services into the services array.</li>
+<li>#define APP_NVM_VERSION the version number of the data structures stored in NVM this is located where NV#0 is stored therefore NV_ADDRESS and NV_NVM_TYPE must be defined even without the NV service.</li>
+<li>#define clkMHz Must be set to the clock speed of the module. Typically this would be 4 or 16.</li>
+<li>#define NN_ADDRESS This must be set to the address in non volatile memory at which the node number is to be stored.</li>
+<li>#define NN_NVM_TYPE This must be set to the type of the NVM where the node number is to be stored.</li>
+<li>#define MODE_ADDRESS This must be set to the address in non volatile memory at which the mode variable is to be stored.</li>
+<li>#define MODE_NVM_TYPE This must be set to the type of the NVM where the mode variable is to be stored.</li>
+<li>#define NUM_LEDS The application must set this to either 1 or 2 to indicate the number of LEDs on the module for indicating operating mode.</li>
+<li>#define APP_setPortDirections() This macro must be set to configure the processor's pins for output to the LEDs and input from the push button. It should also enable digital I/O if required by the processor.</li>
+<li>#define APP_writeLED1(state) This macro must be defined to set LED1 (normally yellow) to the state specified. 1 is LED on.</li>
+<li>#define APP_writeLED2(state) This macro must be defined to set LED1 (normally green) to the state specified. 1 is LED on.</li>
+<li>#define APP_pbState() This macro must be defined to read the push button input, returning true when the push button is held down.</li>
+<li>#define NAME The name of the module must be defined. Must be exactly 7 characters. Shorter names should be padded on the right with spaces. The name must leave off the communications protocol e.g. the CANMIO module would be set to "MIO    ".</li>
+</ul>
+<p>The following parameter values are required to be defined for use by MNS:</p><ul>
+<li>#define PARAM_MANU See the manufacturer settings in <a class="el" href="merglcb_8h.html" title="Baseline functionality required by MERGLCB and entry points into the application.">merglcb.h</a></li>
+<li>#define PARAM_MAJOR_VERSION The major version number</li>
+<li>#define PARAM_MINOR_VERSION The minor version character. E.g. 'a'</li>
+<li>#define PARAM_BUILD_VERSION The build version number</li>
+<li>#define PARAM_MODULE_ID The module ID. Normally set to MTYP_MERGLCB</li>
+<li>#define PARAM_NUM_NV The number of NVs. Normally set to NV_NUM</li>
+<li>#define PARAM_NUM_EVENTS The number of events.</li>
+<li>#define PARAM_NUM_EV_EVENT The number of EVs per event </li>
+</ul>
 </div><h2 class="groupheader">Macro Definition Documentation</h2>
 <a id="afca0dd15dbf75ba1f070213af700bf8a" name="afca0dd15dbf75ba1f070213af700bf8a"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#afca0dd15dbf75ba1f070213af700bf8a">&#9670;&#160;</a></span>MNS_VERSION</h2>

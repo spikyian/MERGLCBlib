@@ -52,6 +52,21 @@
  * rebuildHashTable(). Given a Happening this table can be used to obtain the 
  * index into the EventTable for the Happening so the Event at that index in the 
  * EventTable can be transmitted.
+ * 
+ * # Dependencies on other Services
+ * The Event Producer service depends upon the Event Teach service. The Event
+ * Teach service MUST be included if the Event Producer Service is 
+ * included by the module.
+ * 
+ * If only fixed events are to be produced so that event teaching is not required
+ * then it is recommended to call sendMessage() specifying the necessary 
+ * ACON/ACOF and ASON/ASOF event messages directly from the application.
+ * 
+ * # Module.h definitions required for the Event Producer service
+ * - #define PRODUCED_EVENTS    Always defined whenever the Event Producer service is included
+ * - #define HAPPENING_SIZE        Set to the number of bytes to hold a Happening.
+ *                               Can be either 1 or 2.
+ * 
  */
 
 

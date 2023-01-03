@@ -224,7 +224,19 @@ Variables</h2></td></tr>
 <div class="textblock"><p>Implementation of the MERGLCB CAN service. </p>
 <p>Uses Controller Area Network to carry MERGLCB messages. This implementation works with the PIC18 ECAN.</p>
 <p>The service definition object is called canService. The transport interface is called canTransport.</p>
-<p>Performs self enumeration and CANID collision detection and re-enumeration. Performs loopback of events for Consumes Own <a class="el" href="struct_event.html">Event</a> behaviour. Collects diagnostic data to aid communications fault finding. </p>
+<p>Performs self enumeration and CANID collision detection and re-enumeration. Performs loopback of events for Consumes Own <a class="el" href="struct_event.html">Event</a> behaviour. Collects diagnostic data to aid communications fault finding.</p>
+<h1><a class="anchor" id="autotoc_md2"></a>
+Dependencies on other Services</h1>
+<p>Although the CAN service does not depend upon any other services all modules must include the MNS service.</p>
+<h1><a class="anchor" id="autotoc_md3"></a>
+Module.h definitions required for the CAN service</h1>
+<ul>
+<li>#define CANID_ADDRESS The address of the CANID. PIC modules normally stored this at TOP-1.</li>
+<li>#define CANID_NVM_TYPE The type of NVM where to store the CANID. This can be set to be either EEPROM_NVM_TYPE or FLASH_NVM_TYPE. The PIC modules normally have this set to EEPROM_NVM_TYPE.</li>
+<li>#define CAN_INTERRUPT_PRIORITY 0 for low priority, 1 for high priotity</li>
+<li>#define CAN_NUM_RXBUFFERS the number of receive message buffers to be created. A larger number of buffers will reduce the chance of missing messages but will need to be balanced with the amount of RAM available.</li>
+<li>#define CAN_NUM_TXBUFFERS the number of transmit buffers to be created. Fewer transmit buffers will be needed then receive buffers, the timedResponse mechanism means that 4 or fewer buffers should be sufficient. </li>
+</ul>
 </div><h2 class="groupheader">Macro Definition Documentation</h2>
 <a id="a7ef773c721c520c2e5e67c2a43327d12" name="a7ef773c721c520c2e5e67c2a43327d12"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7ef773c721c520c2e5e67c2a43327d12">&#9670;&#160;</a></span>_CAN_H_</h2>

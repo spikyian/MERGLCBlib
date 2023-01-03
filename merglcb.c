@@ -51,6 +51,8 @@
  * C library for MERGLCB. Written for XC8.
  * 
  * # The structure of the library
+ * <!--
+ * This is an ascii art version of the HTML table below.
  * <pre>
  * -----------
  * |   APP   |
@@ -64,6 +66,59 @@
  * -----------  |         | |         | |                                 |
  *              ----------- ----------- -----------------------------------
  * </pre>
+ * -->
+ * 
+ * <table style="border-collapse: collapse;">
+    <tr>
+        <td colspan="2" style="border-top:2px solid; border-left:2px solid;border-right:2px solid;width:5em;background-color:lightblue;">App</td>
+        <td colspan="8">&nbsp;</td>
+    </tr>
+    <tr>
+        <td style="border-left:2px solid;background-color:lightblue;">&nbsp;</td>
+        <td colspan="9" style="border:2px solid;background-color:lightgreen;text-align: center;">MERGLCB</td>
+    </tr>
+    <tr>
+        <td style="border-left:2px solid;background-color:lightblue;width:5em;">&nbsp;</td>
+        <td style="border:1px solid;border-right:2px solid;background-color:lightblue;">APP callbacks</td>
+        <td style="width:2em;">&nbsp;</td>
+        <td colspan="4" style="border-left:2px solid;border-top:2px solid;border-bottom:2px solid;background-color:yellow;text-align: center;">Service interface</td>
+        <td style="border-right:2px solid;border-top:2px solid;border-bottom:2px solid;width:3em;background-color:yellow;">&nbsp;</td>
+        <td style="width:2em;">&nbsp;</td>
+        <td style="border:2px solid;background-color:bisque;">Transport interface</td>
+    </tr>
+    <tr>
+        <td style="border-left:2px solid;border-bottom:2px solid;background-color:lightblue;">&nbsp;</td>
+        <td style="border-right:2px solid;border-bottom:2px solid;background-color:lightblue;">&nbsp;</td>
+        <td>&nbsp;</td>
+        <td style="border:2px solid;background-color:mediumOrchid;">Service 1</td>
+        <td>&nbsp;</td>
+        <td style="border:2px solid;background-color:hotPink;">Service 2</td>
+        <td>&nbsp;</td>
+        <td colspan="3" style="border:2px solid;background-color:lightCoral;text-align:center;">Transport Service</td>
+    </tr>
+    <tr>
+        <td style="text-align:center;">&uarr;&uarr;&uarr;&uarr;</td>
+        <td style="text-align:center;">&darr;&darr;&darr;&darr;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td colspan="3" style="text-align:center;">&uarr;&darr;</td>
+    </tr>
+    <tr>
+        <td colspan="2" style="text-align:center;">Module I/O</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td colspan="3" style="text-align:center;">BUS</td>
+    </tr>
+</table> 
+ * 
+ * 
+ * 
  * All services must support the Service interface.
  * Transport services must also support the Transport interface.
  * The APP makes use of MERGLCB functionality and also provides functionality to
@@ -133,13 +188,9 @@
  *    - A module may define a function to process MERGLCB messages before being handled by the library.
  *    - A module may also define a function to process MERGLCB messages if not handled by the library. 
  *   
- * 
- * # Module.h
- * The developer of an application must provide a module.h which has 
- * module/application specific definitions which influence the behaviour of MERGLCB.
- * 
+ * ## Application source
  * The application source file must provide:
- * 1. an array of Service definitions
+ * 1. An array of Service definitions
  *      const Service * const services[]
  *    which must be initialised with pointers to each service definition for the
  *    services required by the application.
@@ -156,12 +207,12 @@
  *     &eventAckService
  * };
  * @endcode
- * 2. a void init(void) function which sets the transpoint pointer e.g.
+ * 2. A void init(void) function which sets the transpoint pointer e.g.
  *     transport = &canTransport;
  *    This function must also do any additional, application specific initialisation.
- * 3. a void loop(void) function to perform any regular processing required by
+ * 3. A void loop(void) function to perform any regular processing required by
  *    the application.
- * 4. Functions required by the MERGLCB library depending upon the services used:
+ * 4. Callback functions required by the MERGLCB library depending upon the services used:
  *      uint8_t APP_nvDefault(uint8_t index)
  *      void APP_nvValueChanged(uint8_t index, uint8_t value, uint8_t oldValue)
  *      NvValidation APP_nvValidate(uint8_t index, uint8_t value)
@@ -170,136 +221,11 @@
  *      Processed APP_preProcessMessage(Message * m)
  *      Processed APP_postProcessMessage(Message * m) 
  * 
+ * ## Module.h
+ * The developer of an application must provide a module.h which has 
+ * module/application specific definitions which influence the behaviour of MERGLCB.
  * 
- * ## DEFINITIONS FOR MNS SERVICE
- * - #define NUM_SERVICES to be the number of services implemented by the module.
- *                      The application must put the services into the services array.
- * - #define APP_NVM_VERSION the version number of the data structures stored in NVM
- *                      this is located where NV#0 is stored therefore NV_ADDRESS
- *                      and NV_NVM_TYPE must be defined even without the NV service.
- * - #define clkMHz       Must be set to the clock speed of the module. Typically 
- *                      this would be 4 or 16.
- * - #define NN_ADDRESS   This must be set to the address in non volatile memory
- *                      at which the node number is to be stored.
- * - #define NN_NVM_TYPE  This must be set to the type of the NVM where the node
- *                      number is to be stored.
- * - #define MODE_ADDRESS This must be set to the address in non volatile memory
- *                      at which the mode variable is to be stored.
- * - #define MODE_NVM_TYPE This must be set to the type of the NVM where the mode
- *                      variable is to be stored.
- * - #define NUM_LEDS     The application must set this to either 1 or 2 to 
- *                      indicate the number of LEDs on the module for indicating
- *                      operating mode.
- * - #define APP_setPortDirections() This macro must be set to configure the 
- *                      processor's pins for output to the LEDs and input from the
- *                      push button. It should also enable digital I/O if required 
- *                      by the processor.
- * - #define APP_writeLED1(state) This macro must be defined to set LED1 (normally
- *                      yellow) to the state specified. 1 is LED on.
- * - #define APP_writeLED2(state) This macro must be defined to set LED1 (normally
- *                      green) to the state specified. 1 is LED on.
- * - #define APP_pbState() This macro must be defined to read the push button
- *                      input, returning true when the push button is held down.
- * - #define NAME         The name of the module must be defined. Must be exactly 
- *                      7 characters. Shorter names should be padded on the right 
- *                      with spaces. The name must leave off the communications 
- *                      protocol e.g. the CANMIO module would be set to "MIO    ".
- * 
- * The following parameter values are required to be defined for use by MNS:
- * - #define PARAM_MANU              See the manufacturer settings in merglcb.h
- * - #define PARAM_MAJOR_VERSION     The major version number
- * - #define PARAM_MINOR_VERSION     The minor version character. E.g. 'a'
- * - #define PARAM_BUILD_VERSION     The build version number
- * - #define PARAM_MODULE_ID         The module ID. Normally set to MTYP_MERGLCB
- * - #define PARAM_NUM_NV            The number of NVs. Normally set to NV_NUM
- * - #define PARAM_NUM_EVENTS        The number of events.
- * - #define PARAM_NUM_EV_EVENT      The number of EVs per event
- * 
- * 
- * ## DEFINITIONS FOR NV SERVICE
- * - #define NV_NUM       The number of NVs. Will be returned in the parameter block.
- * - #define NV_CACHE     Defined, as opposed to undefined, to enable a cache of
- *                      NVs in RAM. Uses more RAM but speeds up access to NVs when
- *                      in normal operation processing events. 
- * - #define NV_ADDRESS   the address in non volatile memory to place the NVM version 
- *                      number and NVs if the NV service is included.
- * - #define NV_NVM_TYPE  the type of NVM memory to be used for NVs. Can be either
- *                      EEPROM_NVM_TYPE or FLASH_NVM_TYPE.
- * - Function uint8_t APP_nvDefault(uint8_t index) The application must implement this 
- *                      function to provide factory default values for NVs.
- * - Function NvValidation APP_nvValidate(uint8_t index, uint8_t value) The application
- *                      must implement this function in order to validate that
- *                      the value being written to an NV is valid.
- * - Function void APP_nvValueChanged(uint8_t index, uint8_t newValue, uint8_t oldValue)
- *                      The application must implement this function in order to
- *                      perform any needed functionality to be performed when an 
- *                      NV value is changed.
- * 
- * 
- * ## DEFINITIONS FOR CAN SERVICE
- * - #define CANID_ADDRESS The address of the CANID. PIC modules normally stored 
- *                      this at TOP-1.
- * - #define CANID_NVM_TYPE The type of NVM where to store the CANID. This can be
- *                      set to be either EEPROM_NVM_TYPE or FLASH_NVM_TYPE. The
- *                      PIC modules normally have this set to EEPROM_NVM_TYPE.
- * - #define CAN_INTERRUPT_PRIORITY 0 for low priority, 1 for high priotity
- * - #define CAN_NUM_RXBUFFERS the number of receive message buffers to be created. A
- *                      larger number of buffers will reduce the chance of missing
- *                      messages but will need to be balanced with the amount of 
- *                      RAM available.
- * - #define CAN_NUM_TXBUFFERS the number of transmit buffers to be created. Fewer 
- *                      transmit buffers will be needed then receive buffers, 
- *                      the timedResponse mechanism means that 4 or fewer buffers
- *                      should be sufficient.
- * 
- * 
- * ## DEFINITIONS FOR BOOT SERVICE
- * - #define BOOT_FLAG_ADDRESS This should be set to where the module's bootloader
- *                      places the bootflag.
- * - #define BOOT_FLAG_NVM_TYPE This should be set to be the type of NVM where the
- *                      bootloader stores the boot flag. This can be set to be 
- *                      either EEPROM_NVM_TYPE or FLASH_NVM_TYPE. The PIC
- *                      modules normally have this set to EEPROM_NVM_TYPE.
- * - #define BOOTLOADER_PRESENT The module should define, as opposed to undefine, 
- *                      this to indicate that the application should be 
- *                      compiled to start at 0x800 to allow room for the bootloader 
- *                      between 0x000 and 0x7FF.
- * 
- * 
- * ## DEFINITIONS FOR EVENT TEACH SERVICE
- * - #define EVENT_TABLE_WIDTH   This the the width of the table - not the 
- *                       number of EVs per event as multiple rows in
- *                       the table can be used to store an event.
- * - #define NUM_EVENTS          The number of rows in the event table. The
- *                        actual number of events may be less than this
- *                        if any events use more the 1 row.
- * - #define EVENT_TABLE_ADDRESS   The address where the event table is stored. 
- * - #define EVENT_TABLE_NVM_TYPE  Set to be either FLASH_NVM_TYPE or EEPROM_NVM_TYPE
- * - #define EVENT_HASH_TABLE      If defined then hash tables will be used for
- *                        quicker lookup of events at the expense of additional RAM.
- * - #define EVENT_HASH_LENGTH     If hash tables are used then this sets the length
- *                        of the hash.
- * - #define EVENT_CHAIN_LENGTH    If hash tables are used then this sets the number
- *                        of events in the hash chain.
- * - #define MAX_HAPPENING         Set to be the maximum Happening value
- * - #define PRODUCED_EVENTS       define if the event producer service is enabled.
- * - #define CONSUMED_EVENTS       define if the event consumer service is enabled.
- * 
- * 
- * ## DEFINITIONS FOR THE EVENT PRODUCER SERVICE
- * - #define HAPPENING_SIZE        Set to the number of bytes to hold a Happening.
- *                               Can be either 1 or 2.
- * 
- * 
- * ## DEFINITIONS FOR THE EVENT CONSUMER SERVICE
- * - #define HANDLE_DATA_EVENTS    Define if the ACON1/ACON2/ACON3 style events 
- *                               with data are to used in the same way as ACON 
- *                               style events.
- * - #define COMSUMER_EVS_AS_ACTIONS Define if the EVs are to be treated to be Actions
- * - #define ACTION_SIZE           The number of bytes used to hold an Action. 
- *                               Currently must be 1.
- * - #define ACTION_QUEUE_SIZE     The size of the Action queue.
- * 
+ * Each service documents any requirements it may add for the module.h file.
  * 
  */
 

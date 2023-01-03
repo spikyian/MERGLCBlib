@@ -53,6 +53,30 @@
  * If NV_CACHE is defined in module.h then the NV service implements a cache
  * of NV values in RAM. This can be used to speed up obtaining NV values used 
  * within the application at the expense of additional RAM usage.
+ * 
+ * # Dependencies on other Services
+ * Although the NV service does not depend upon any other services all modules
+ * must include the MNS service.
+ * 
+ * # Module.h definitions required for the NV service
+ * - #define NV_NUM       The number of NVs. Will be returned in the parameter block.
+ * - #define NV_CACHE     Defined, as opposed to undefined, to enable a cache of
+ *                      NVs in RAM. Uses more RAM but speeds up access to NVs when
+ *                      in normal operation processing events. 
+ * - #define NV_ADDRESS   the address in non volatile memory to place the NVM version 
+ *                      number and NVs if the NV service is included.
+ * - #define NV_NVM_TYPE  the type of NVM memory to be used for NVs. Can be either
+ *                      EEPROM_NVM_TYPE or FLASH_NVM_TYPE.
+ * - Function uint8_t APP_nvDefault(uint8_t index) The application must implement this 
+ *                      function to provide factory default values for NVs.
+ * - Function NvValidation APP_nvValidate(uint8_t index, uint8_t value) The application
+ *                      must implement this function in order to validate that
+ *                      the value being written to an NV is valid.
+ * - Function void APP_nvValueChanged(uint8_t index, uint8_t newValue, uint8_t oldValue)
+ *                      The application must implement this function in order to
+ *                      perform any needed functionality to be performed when an 
+ *                      NV value is changed.
+ * 
  */
 
 /*

@@ -52,6 +52,27 @@
  * module.h although the data is ignored.
  * If COMSUMER_EVS_AS_ACTIONS is defined then EVs after the Happening are treated
  * as Actions and are added to an Action queue to be processed by the application.
+ * 
+ * # Dependencies on other Services
+ * The Event Consumer service depends upon the Event Teach service. The Event
+ * Teach service MUST be included if the Event Consumer Service is 
+ * included by the module.
+ * 
+ * If only fixed events are to be consumed so that event teaching is not required
+ * then it is recommended to process the necessary ACON/ACOF and ASON/ASOF event
+ * messages from the application's Processed APP_postProcessMessage(Message * m)
+ * function.
+ * 
+ * # Module.h definitions required for the Event Consumer service
+ * - #define CONSUMED_EVENTS    Always defined whenever the Event Consumer service is included
+ * - #define HANDLE_DATA_EVENTS    Define if the ACON1/ACON2/ACON3 style events 
+ *                               with data are to used in the same way as ACON 
+ *                               style events.
+ * - #define COMSUMER_EVS_AS_ACTIONS Define if the EVs are to be treated to be Actions
+ * - #define ACTION_SIZE           The number of bytes used to hold an Action. 
+ *                               Currently must be 1.
+ * - #define ACTION_QUEUE_SIZE     The size of the Action queue.
+ * 
  */ 
 
 
