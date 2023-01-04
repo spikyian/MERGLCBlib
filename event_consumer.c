@@ -199,8 +199,7 @@ static DiagnosticVal * consumerGetDiagnostic(uint8_t index) {
 
 /**
  * Push a message onto the Action queue.
- * @param q
- * @param a
+ * @param a the Action
  * @return TRUE for success FALSE for buffer full
  */
 Boolean pushAction(Action a) {

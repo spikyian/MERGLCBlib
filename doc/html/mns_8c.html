@@ -24,6 +24,7 @@
 <table cellspacing="0" cellpadding="0">
  <tbody>
  <tr id="projectrow">
+  <td id="projectlogo"><img alt="Logo" src="MERGlcb-small.png"/></td>
   <td id="projectalign">
    <div id="projectname">MERGLCBlib
    </div>
@@ -123,10 +124,10 @@ Functions</h2></td></tr>
 <tr class="memdesc:a4eaa30c9572b41224a672588fd8a939d"><td class="mdescLeft">&#160;</td><td class="mdescRight">The module's name.  <br /></td></tr>
 <tr class="separator:a4eaa30c9572b41224a672588fd8a939d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8ff39caa0d8ba94b3951820938955126"><td class="memItemLeft" align="right" valign="top"><a class="el" href="timed_response_8h.html#a34f3661bc164f76318500bd6a0fafd48">TimedResponseResult</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="mns_8c.html#a8ff39caa0d8ba94b3951820938955126">mnsTRserviceDiscoveryCallback</a> (uint8_t type, uint8_t serviceIndex, uint8_t step)</td></tr>
-<tr class="memdesc:a8ff39caa0d8ba94b3951820938955126"><td class="mdescLeft">&#160;</td><td class="mdescRight">Forward declaration for the TimedResponse callback function for sending <a class="el" href="struct_service.html" title="This is the service descriptor and the main entry point to a service.">Service</a> Discovery responses.  <br /></td></tr>
+<tr class="memdesc:a8ff39caa0d8ba94b3951820938955126"><td class="mdescLeft">&#160;</td><td class="mdescRight">This is the callback used by the service discovery responses.  <br /></td></tr>
 <tr class="separator:a8ff39caa0d8ba94b3951820938955126"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afbb83807770e2a4bd09fcf484a6f178d"><td class="memItemLeft" align="right" valign="top"><a class="el" href="timed_response_8h.html#a34f3661bc164f76318500bd6a0fafd48">TimedResponseResult</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="mns_8c.html#afbb83807770e2a4bd09fcf484a6f178d">mnsTRallDiagnosticsCallback</a> (uint8_t type, uint8_t serviceIndex, uint8_t step)</td></tr>
-<tr class="memdesc:afbb83807770e2a4bd09fcf484a6f178d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Forward declaration for the TimedResponse callback function for sending Diagnostic responses.  <br /></td></tr>
+<tr class="memdesc:afbb83807770e2a4bd09fcf484a6f178d"><td class="mdescLeft">&#160;</td><td class="mdescRight">This is the callback used by the diagnostic responses.  <br /></td></tr>
 <tr class="separator:afbb83807770e2a4bd09fcf484a6f178d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a57807e6772d17598b2608951ef49bdc6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="mns_8c.html#a57807e6772d17598b2608951ef49bdc6">updateModuleErrorStatus</a> (void)</td></tr>
 <tr class="memdesc:a57807e6772d17598b2608951ef49bdc6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Update the module status with an error.  <br /></td></tr>
@@ -257,17 +258,7 @@ Module.h definitions required for the MNS service</h1>
       </table>
 </div><div class="memdoc">
 
-<p>Forward declaration for the TimedResponse callback function for sending Diagnostic responses. </p>
-<p>This is the callback used by the diagnostic responses.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">type</td><td>type of TimedResponse </td></tr>
-    <tr><td class="paramname">s</td><td>the service </td></tr>
-    <tr><td class="paramname">step</td><td>the TimedResponse step </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>indication if all the responses have been sent.</dd></dl>
+<p>This is the callback used by the diagnostic responses. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">type</td><td>always set to TIMED_RESPONSE_RDNG </td></tr>
@@ -312,21 +303,11 @@ Module.h definitions required for the MNS service</h1>
       </table>
 </div><div class="memdoc">
 
-<p>Forward declaration for the TimedResponse callback function for sending <a class="el" href="struct_service.html" title="This is the service descriptor and the main entry point to a service.">Service</a> Discovery responses. </p>
-<p>This is the callback used by the service discovery responses.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">type</td><td>type of TimedResponse </td></tr>
-    <tr><td class="paramname">s</td><td>the service </td></tr>
-    <tr><td class="paramname">step</td><td>the TimedResponse step </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>indication if all the responses have been sent.</dd></dl>
+<p>This is the callback used by the service discovery responses. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">type</td><td>always set to TIMED_RESPONSE_RQSD </td></tr>
-    <tr><td class="paramname">s</td><td>indicates the service requesting the responses </td></tr>
+    <tr><td class="paramname">serviceIndex</td><td>indicates the service requesting the responses </td></tr>
     <tr><td class="paramname">step</td><td>loops through each service to be discovered </td></tr>
   </table>
   </dd>

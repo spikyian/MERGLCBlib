@@ -198,20 +198,20 @@ static volatile uint8_t sendHeartbeatEventOn;
 /* Uptime controls */
 static TickValue uptimeTimer;
 
-/**
+/*
  * Forward declaration for the TimedResponse callback function for sending
  * Service Discovery responses.
  * @param type type of TimedResponse
- * @param s the service
+ * @param serviceIndex the service
  * @param step the TimedResponse step
  * @return indication if all the responses have been sent.
  */
 TimedResponseResult mnsTRserviceDiscoveryCallback(uint8_t type, uint8_t serviceIndex, uint8_t step);
-/**
+/*
  * Forward declaration for the TimedResponse callback function for sending
  * Diagnostic responses.
  * @param type type of TimedResponse
- * @param s the service
+ * @param serviceIndex the service
  * @param step the TimedResponse step
  * @return indication if all the responses have been sent.
  */
@@ -900,7 +900,7 @@ void setLEDsByMode(void) {
 /**
  * This is the callback used by the service discovery responses.
  * @param type always set to TIMED_RESPONSE_RQSD
- * @param s indicates the service requesting the responses
+ * @param serviceIndex indicates the service requesting the responses
  * @param step loops through each service to be discovered
  * @return whether all of the responses have been sent yet.
  */
@@ -915,7 +915,7 @@ TimedResponseResult mnsTRserviceDiscoveryCallback(uint8_t type, uint8_t serviceI
 }
 
 /**
- * This is the callback used by the diagnostic responses.
+ * This is the callback used by the diagnostic responses. 
  * @param type always set to TIMED_RESPONSE_RDNG
  * @param serviceIndex indicates the service requesting the responses
  * @param step loops through each of the diagnostics

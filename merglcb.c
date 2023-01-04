@@ -599,7 +599,7 @@ const Service * findService(uint8_t id) {
 
 /**
  * Obtain the index int the services array of the specified service.
- * @param id the service type id
+ * @param serviceType the service type id
  * @return the index into the services array or -1 if the service is not used by the module.
  */
 uint8_t findServiceIndex(uint8_t serviceType) {

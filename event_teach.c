@@ -470,7 +470,7 @@ static void doNerd(void) {
 /**
  * The callback to do the NERD responses.
  * @param type the type of the timedResponse
- * @param s the service
+ * @param serviceIndex the service
  * @param step how far through the processing
  * @return whether to finish or continue processing
  */
@@ -659,7 +659,7 @@ static void doReqev(uint16_t nodeNumber, uint16_t eventNumber, uint8_t evNum) {
 }
 /**
  * The callback to do the REQEV responses.
- * @param type the type of the timedResponse
+ * @param tableIndex the index of the event in the eventTable
  * @param serviceIndex the service
  * @param step how far through the processing, considered to be an EV#-1
  * @return whether to finish or continue processing

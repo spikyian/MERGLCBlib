@@ -77,7 +77,7 @@ void initTimedResponse(void) {
  * Request callbacks at a regular rate.
  * 
  * @param type  indicate to the callback function the type of the callback.
- * @param serviceId passed to the user's callback function. 1..NUM_SERVICES. If SERVICE_ID_ALL is 
+ * @param serviceIndex passed to the user's callback function. 1..NUM_SERVICES. If SERVICE_ID_ALL is 
  * passed then the callback is repeatedly for each service.
  * @param callback the user specific callback function
  */

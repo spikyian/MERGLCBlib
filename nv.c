@@ -291,7 +291,7 @@ static uint8_t nvGetESDdata(uint8_t id) {
 /**
  * This is the callback used by the service discovery responses.
  * @param type always set to TIMED_RESPONSE_NVRD
- * @param s indicates the service requesting the responses
+ * @param serviceIndex indicates the service requesting the responses
  * @param step loops through each service to be discovered
  * @return whether all of the responses have been sent yet.
  */

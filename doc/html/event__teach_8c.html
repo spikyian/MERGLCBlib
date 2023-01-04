@@ -24,6 +24,7 @@
 <table cellspacing="0" cellpadding="0">
  <tbody>
  <tr id="projectrow">
+  <td id="projectlogo"><img alt="Logo" src="MERGlcb-small.png"/></td>
   <td id="projectalign">
    <div id="projectname">MERGLCBlib
    </div>
@@ -456,7 +457,7 @@ BEWARE Concurrency: The functions which use the eventtable and hash/lookup must 
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">type</td><td>the type of the timedResponse </td></tr>
-    <tr><td class="paramname">s</td><td>the service </td></tr>
+    <tr><td class="paramname">serviceIndex</td><td>the service </td></tr>
     <tr><td class="paramname">step</td><td>how far through the processing </td></tr>
   </table>
   </dd>
@@ -565,7 +566,7 @@ BEWARE Concurrency: The functions which use the eventtable and hash/lookup must 
 <p>The callback to do the REQEV responses. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">type</td><td>the type of the timedResponse </td></tr>
+    <tr><td class="paramname">tableIndex</td><td>the index of the event in the eventTable </td></tr>
     <tr><td class="paramname">serviceIndex</td><td>the service </td></tr>
     <tr><td class="paramname">step</td><td>how far through the processing, considered to be an EV#-1 </td></tr>
   </table>
