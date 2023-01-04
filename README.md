@@ -60,4 +60,4 @@ An MERGLCB module using this library needs to consider the following application
    - A module may also define a function to process MERGLCB messages if not handled by the library. 
   
 # Full documentation
-[doxygen generated documentation](http://htmlpreview.github.io/?/doc/html/index.html)
+The full user documentation (look in the \*.h files) and developer documentation (look in the \*.c files) can be viewed by opening doc/html/index.html in your browser.
