@@ -207,7 +207,7 @@
  *     &eventAckService
  * };
  * @endcode
- * 2. A void init(void) function which sets the transport pointer e.g.
+ * 2. A void init(void) function which sets the transport status pointer e.g.
  *     transport = &canTransport;
  *    This function must also do any additional, application specific initialisation.
  * 3. A void loop(void) function to perform any regular processing required by

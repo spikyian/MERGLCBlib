@@ -81,12 +81,18 @@ extern const Service eventConsumerService;
 #define NUM_CONSUMER_DIAGNOSTICS    1   ///< Number of diagnostics
 #define CONSUMER_DIAG_NUMCONSUMED   0   ///< Number of events consumed
 
+typedef struct {
+    uint8_t state;
+    union {
 #if ACTION_SIZE == 1
-typedef uint8_t Action;
+        uint8_t value;
 #endif
 #if ACTION_SIZE == 2
-typedef Word Action;
+        unit16_t value;
 #endif
+        uint8_t bytes[ACTION_SIZE];
+    } a;
+} Action;
 
 extern Action * popAction(void);
 

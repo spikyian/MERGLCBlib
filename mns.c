@@ -420,7 +420,7 @@ static Processed mnsProcessMessage(Message * m) {
                         i |= 2;
                     }
                     if (i == 3) i |= 8;     // CoE
-                    flags |= 4; // NORMAL BIT
+                    i |= 4; // NORMAL BIT
                     if (have(SERVICE_ID_BOOT)) {
                         i |= 16;
                     }
@@ -931,6 +931,6 @@ TimedResponseResult mnsTRallDiagnosticsCallback(uint8_t type, uint8_t serviceInd
         return TIMED_RESPONSE_RESULT_FINISHED;
     }
     // it was a request for a single diagnostic from a single service
-    sendMessage6(OPC_DGN, nn.bytes.hi, nn.bytes.lo, services[serviceIndex]->serviceNo, step+1, d->asBytes.hi, d->asBytes.lo);
+    sendMessage6(OPC_DGN, nn.bytes.hi, nn.bytes.lo, serviceIndex+1, step+1, d->asBytes.hi, d->asBytes.lo);
     return TIMED_RESPONSE_RESULT_NEXT;
 }

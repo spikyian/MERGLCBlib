@@ -174,9 +174,14 @@ static Processed consumerProcessMessage(Message *m) {
     // get the list of actions and add then to the action queue
     for (e=start; e<=end; e+=change) {
         int16_t ev;
-        ev = getEv(tableIndex, e);
-        if (ev < 0) continue;
-        a = (uint8_t)ev;
+        uint8_t evi;
+        
+        for (evi=0; evi<ACTION_SIZE; evi++) {
+            ev = getEv(tableIndex, e);
+            if (ev < 0) continue;
+            a.a.bytes[evi] = (uint8_t)ev;
+        }
+        a.state = (change>0);
         pushAction(a);
     }
 #endif
