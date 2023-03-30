@@ -184,6 +184,8 @@ static Processed consumerProcessMessage(Message *m) {
         a.state = (change>0);
         pushAction(a);
     }
+#else
+    APP_processConsumedEvent(tableIndex, m);
 #endif
     consumerDiagnostics[CONSUMER_DIAG_NUMCONSUMED].asUint++;
     return NOT_PROCESSED;
